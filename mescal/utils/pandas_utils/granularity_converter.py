@@ -1,5 +1,4 @@
-from enums import Enum
-
+from aenum import Enum
 import pandas as pd
 
 from mescal.enums import QuantityTypeEnum
