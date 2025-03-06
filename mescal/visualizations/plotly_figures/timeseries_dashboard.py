@@ -8,15 +8,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-
 X_AXIS_AGGS = Literal['date', 'year_month', 'year_week', 'week', 'month', 'year']
 X_AXIS_TYPES = Union[X_AXIS_AGGS, List[X_AXIS_AGGS]]
 GROUPBY_AGG_TYPES = Union[str, List[str]]
 
 
 class DashboardConfig:
-    """Configuration class to store and validate dashboard parameters"""
-
     DEFAULT_STATISTICS = {
         'Datums': lambda x: len(x),
         'Abs max': lambda x: x.abs().max(),
@@ -45,26 +42,28 @@ class DashboardConfig:
 
     def __init__(
             self,
-            x_axis='date',
-            facet_col=None,
-            facet_row=None,
-            facet_col_wrap=None,
-            facet_col_order=None,
-            facet_row_order=None,
-            ratio_of_stat_col=0.1,
-            stat_aggs=None,
-            groupby_aggregation='mean',
-            title=None,
-            color_continuous_scale=None,
-            color_continuous_midpoint=None,
-            range_color=None,
-            per_facet_col_colorscale=False,
-            per_facet_row_colorscale=False,
-            facet_row_color_settings=None,
-            facet_col_color_settings=None,
-            time_series_figure_kwargs=None,
-            stat_figure_kwargs=None,
-            universal_figure_kwargs=None,
+            x_axis: X_AXIS_TYPES = 'date',
+            facet_col: str = None,
+            facet_row: str = None,
+            facet_col_wrap: int = None,
+            facet_col_order: list[str] = None,
+            facet_row_order: list[str] = None,
+            ratio_of_stat_col: float = 0.1,
+            stat_aggs: Dict[str, Callable[[pd.Series], float | int]] = None,
+            groupby_aggregation: GROUPBY_AGG_TYPES = 'mean',
+            title: str = None,
+            color_continuous_scale: str | list[str] | list[tuple[float, str]] = None,
+            color_continuous_midpoint: int | float = None,
+            range_color: list[int | float] = None,
+            per_facet_col_colorscale: bool = False,
+            per_facet_row_colorscale: bool = False,
+            facet_row_color_settings: dict = None,
+            facet_col_color_settings: dict = None,
+            subplots_vertical_spacing: float = None,
+            subplots_horizontal_spacing: float = None,
+            time_series_figure_kwargs: dict = None,
+            stat_figure_kwargs: dict = None,
+            universal_figure_kwargs: dict = None,
             **figure_kwargs
     ):
         self.x_axis = x_axis
@@ -88,13 +87,14 @@ class DashboardConfig:
         if facet_col_color_settings and not per_facet_col_colorscale:
             raise ValueError("Set per_facet_col_colorscale to True in order to use facet_col_color_settings.")
 
-        # Color settings per facet
         self.facet_row_color_settings = facet_row_color_settings or {}
         self.facet_col_color_settings = facet_col_color_settings or {}
 
-        # Figure kwargs
         self.time_series_figure_kwargs = time_series_figure_kwargs or {}
         self.stat_figure_kwargs = stat_figure_kwargs or {}
+
+        self.subplots_vertical_spacing = subplots_vertical_spacing
+        self.subplots_horizontal_spacing = subplots_horizontal_spacing
 
         universal_figure_kwargs = universal_figure_kwargs or {}
 
@@ -108,11 +108,8 @@ class DashboardConfig:
 
 
 class DataProcessor:
-    """Handles data processing and validation for the dashboard"""
-
     @staticmethod
-    def validate_input_data(data: pd.DataFrame, config: DashboardConfig) -> None:
-        """Validate input data against configuration parameters"""
+    def validate_input_data_and_config(data: pd.DataFrame, config: DashboardConfig) -> None:
         x_axis = config.x_axis
         groupby_aggregation = config.groupby_aggregation
         facet_col = config.facet_col
@@ -172,7 +169,6 @@ class DataProcessor:
 
     @staticmethod
     def prepare_dataframe_for_facet(data: pd.DataFrame, config: DashboardConfig) -> pd.DataFrame:
-        """Prepare dataframe for faceting operations"""
         for k in ['x_axis', 'groupby_aggregation']:
             config_value = getattr(config, k)
             if isinstance(config_value, list):
@@ -184,8 +180,7 @@ class DataProcessor:
         return data
 
     @staticmethod
-    def ensure_two_column_levels(data: pd.DataFrame, config: DashboardConfig) -> pd.DataFrame:
-        """Ensure dataframe has two column levels"""
+    def ensure_df_has_two_column_levels(data: pd.DataFrame, config: DashboardConfig) -> pd.DataFrame:
         if isinstance(data, pd.Series):
             data = data.to_frame(data.name or 'Time series')
 
@@ -200,7 +195,6 @@ class DataProcessor:
 
     @staticmethod
     def update_facet_config(data: pd.DataFrame, config: DashboardConfig) -> None:
-        """Update facet configuration based on data"""
         unique_facet_col_keys = data.columns.get_level_values(config.facet_col).unique().to_list()
         if config.facet_col_order is None:
             config.facet_col_order = unique_facet_col_keys
@@ -238,33 +232,25 @@ class DataProcessor:
 
     @staticmethod
     def _insert_empty_column_index_level(df: pd.DataFrame, level_name: str = None) -> pd.DataFrame:
-        """Insert an empty column index level"""
         level_value = ''
         return pd.concat({level_value: df}, axis=1, names=[level_name])
 
     @staticmethod
     def _prepend_empty_row(df: pd.DataFrame) -> pd.DataFrame:
-        """Prepend an empty row to a dataframe"""
         empty_row = pd.DataFrame([[np.nan] * len(df.columns)], index=[' '], columns=df.columns)
         return pd.concat([empty_row, df])
 
 
 class ColorManager:
-    """Manages color scales for the dashboard"""
-
     @staticmethod
-    def get_facet_color_settings(config, facet_key):
-        """Get color settings for a specific facet"""
+    def get_color_settings_for_facet_category(config: DashboardConfig, facet_key: tuple[str, str]):
         row_key, col_key = facet_key
-
-        # Default settings from global config
         settings = {
             'color_continuous_scale': config.figure_kwargs.get('color_continuous_scale'),
             'color_continuous_midpoint': config.figure_kwargs.get('color_continuous_midpoint'),
             'range_color': config.figure_kwargs.get('range_color')
         }
 
-        # Override with facet-specific settings if available
         if config.per_facet_row_colorscale and row_key in config.facet_row_color_settings:
             settings.update(config.facet_row_color_settings.get(row_key, {}))
         elif config.per_facet_col_colorscale and col_key in config.facet_col_color_settings:
@@ -273,15 +259,12 @@ class ColorManager:
         return settings
 
     @staticmethod
-    def compute_color_params(data, config, facet_key=None):
-        """Compute color parameters for heatmap"""
-        # Get settings for this facet
+    def compute_color_params(data, config: DashboardConfig, facet_key: tuple[str, str] = None):
         if facet_key is not None:
-            settings = ColorManager.get_facet_color_settings(config, facet_key)
+            settings = ColorManager.get_color_settings_for_facet_category(config, facet_key)
         else:
             settings = config.figure_kwargs
 
-        # If we're using per-facet colorscales, filter data for this facet
         if facet_key is not None:
             if config.per_facet_row_colorscale:
                 row_key, _ = facet_key
@@ -294,7 +277,6 @@ class ColorManager:
         else:
             filtered_data = data
 
-        # Apply color parameters
         color_continuous_scale = settings.get('color_continuous_scale')
         color_continuous_midpoint = settings.get('color_continuous_midpoint')
         range_color = settings.get('range_color')
@@ -320,11 +302,8 @@ class ColorManager:
 
 
 class TraceGenerator:
-    """Generates traces for the dashboard"""
-
     @staticmethod
     def get_heatmap_trace(data: pd.DataFrame, ts_kwargs, color_kwargs, **kwargs):
-        """Generate a heatmap trace"""
         if set(data.columns).issubset(list(range(1, 13))):
             x = [calendar.month_abbr[m] for m in range(1, 13)]
         else:
@@ -346,7 +325,6 @@ class TraceGenerator:
 
     @staticmethod
     def get_stats_trace(series: pd.Series, stat_aggs, stat_kwargs, color_kwargs, **kwargs):
-        """Generate a statistics trace"""
         data_stats = pd.Series({agg: func(series) for agg, func in stat_aggs.items()})
         data_stats = data_stats.to_frame('stats')
         data_stats = DataProcessor._prepend_empty_row(data_stats)
@@ -376,7 +354,6 @@ class TraceGenerator:
 
     @staticmethod
     def create_colorscale_trace(z_min, z_max, colorscale, orientation='v', title=None):
-        """Create a standalone colorscale trace"""
         if orientation == 'v':
             z_vals = np.linspace(z_min, z_max, 100).reshape(-1, 1)
         else:
@@ -390,14 +367,14 @@ class TraceGenerator:
         }
 
         if orientation == 'h':
-            x = axis_vals
-            y = None
             colorbar_settings.update({
                 'orientation': 'h',
                 'y': -0.15,
                 'xanchor': 'center',
                 'x': 0.5
             })
+            x = axis_vals
+            y = None
         else:
             x = None
             y = axis_vals
@@ -415,31 +392,71 @@ class TraceGenerator:
 
 
 class TimeSeriesDashboardGenerator:
-    """Generates time series dashboards with heatmaps and statistics"""
+    def __init__(
+            self,
+            x_axis: X_AXIS_TYPES = 'date',
+            facet_col: str = None,
+            facet_row: str = None,
+            facet_col_wrap: int = None,
+            facet_col_order: list[str] = None,
+            facet_row_order: list[str] = None,
+            ratio_of_stat_col: float = 0.1,
+            stat_aggs: Dict[str, Callable[[pd.Series], float | int]] = None,
+            groupby_aggregation: GROUPBY_AGG_TYPES = 'mean',
+            title: str = None,
+            color_continuous_scale: str | list[str] | list[tuple[float, str]] = None,
+            color_continuous_midpoint: int | float = None,
+            range_color: list[int | float] = None,
+            per_facet_col_colorscale: bool = False,
+            per_facet_row_colorscale: bool = False,
+            facet_row_color_settings: dict = None,
+            facet_col_color_settings: dict = None,
+            subplots_vertical_spacing: float = None,
+            subplots_horizontal_spacing: float = None,
+            time_series_figure_kwargs: dict = None,
+            stat_figure_kwargs: dict = None,
+            universal_figure_kwargs: dict = None,
+            **figure_kwargs
+    ):
+        self.config = DashboardConfig(
+            x_axis=x_axis,
+            facet_col=facet_col,
+            facet_row=facet_row,
+            facet_col_wrap=facet_col_wrap,
+            facet_col_order=facet_col_order,
+            facet_row_order=facet_row_order,
+            ratio_of_stat_col=ratio_of_stat_col,
+            stat_aggs=stat_aggs,
+            groupby_aggregation=groupby_aggregation,
+            title=title,
+            color_continuous_scale=color_continuous_scale,
+            color_continuous_midpoint=color_continuous_midpoint,
+            range_color=range_color,
+            per_facet_col_colorscale=per_facet_col_colorscale,
+            per_facet_row_colorscale=per_facet_row_colorscale,
+            facet_row_color_settings=facet_row_color_settings,
+            facet_col_color_settings=facet_col_color_settings,
+            subplots_vertical_spacing=subplots_vertical_spacing,
+            subplots_horizontal_spacing=subplots_horizontal_spacing,
+            time_series_figure_kwargs=time_series_figure_kwargs,
+            stat_figure_kwargs=stat_figure_kwargs,
+            universal_figure_kwargs=universal_figure_kwargs,
+            ** figure_kwargs
+        )
 
-    def __init__(self, **kwargs):
-        self.config = DashboardConfig(**kwargs)
-
-    def get_figure(self, data, **kwargs):
-        """Generate a dashboard figure for the given data"""
-        # Update config with any overrides
+    def get_figure(self, data: pd.DataFrame, **kwargs):
         for key, value in kwargs.items():
             if hasattr(self.config, key):
                 setattr(self.config, key, value)
 
-        # Prepare data and validate
-        DataProcessor.validate_input_data(data, self.config)
         data = DataProcessor.prepare_dataframe_for_facet(data, self.config)
-        data = DataProcessor.ensure_two_column_levels(data, self.config)
+        data = DataProcessor.ensure_df_has_two_column_levels(data, self.config)
         DataProcessor.update_facet_config(data, self.config)
 
-        # Create figure layout with space for colorscales if needed
-        fig = self._create_figure_layout(data)
+        fig = self._create_figure_layout_with_subplots(data)
 
-        # Generate traces for each facet
-        self._add_traces_to_figure(data, fig)
+        self._add_heatmap_and_stat_traces_to_figure(data, fig)
 
-        # Add colorscale traces if using per-facet colorscales
         if self.config.per_facet_col_colorscale:
             self._add_column_colorscales(data, fig)
             fig.update_traces(showlegend=False)
@@ -447,7 +464,6 @@ class TimeSeriesDashboardGenerator:
             self._add_row_colorscales(data, fig)
             fig.update_traces(showlegend=False)
 
-        # Add title if specified
         if self.config.title:
             fig.update_layout(
                 title=f'<b>{self.config.title}</b>',
@@ -456,30 +472,77 @@ class TimeSeriesDashboardGenerator:
 
         return fig
 
-    def _create_figure_layout(self, data):
-        """Create the figure layout with subplots"""
+    def _create_figure_layout_with_subplots(self, data: pd.DataFrame) -> go.Figure:
         facet_col_wrap = self.config.facet_col_wrap
         ratio_of_stat_col = self.config.ratio_of_stat_col
 
-        # Determine if we need extra space for colorscales
         has_colorscale_col = self.config.per_facet_row_colorscale
         has_colorscale_row = self.config.per_facet_col_colorscale
 
-        # Calculate number of rows and columns needed
         num_facet_rows = len(self.config.facet_row_order)
         num_facet_cols = len(self.config.facet_col_order)
 
-        # Calculate grid dimensions
         num_rows = math.ceil(num_facet_cols / facet_col_wrap) * num_facet_rows
         num_cols = facet_col_wrap * 2  # Each facet gets a heatmap + stats column
 
-        # Add space for colorscales
         if has_colorscale_col:
-            num_cols += 1  # Add one column for row colorscales
+            num_cols += 1
         if has_colorscale_row:
-            num_rows += 1  # Add one row for column colorscales
+            num_rows += 1
 
-        # Generate subplot titles (excluding colorscale areas)
+        subplot_titles = self._generate_subplot_titles(has_colorscale_col, has_colorscale_row)
+        column_widths = self._get_column_widths(facet_col_wrap, has_colorscale_col, ratio_of_stat_col)
+        row_heights = self._get_row_heights(has_colorscale_row, num_rows)
+        specs = [[{} for _ in range(num_cols)] for _ in range(num_rows)]
+
+        fig = make_subplots(
+            rows=num_rows,
+            cols=num_cols,
+            subplot_titles=subplot_titles,
+            column_widths=column_widths,
+            row_heights=row_heights,
+            specs=specs,
+            vertical_spacing=self.config.subplots_vertical_spacing,
+            horizontal_spacing=self.config.subplots_horizontal_spacing,
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(0, 0, 0, 0)',
+            margin=dict(t=50, b=50)
+        )
+
+        return fig
+
+    def _get_row_heights(self, has_colorscale_row: bool, num_rows: int) -> list[float]:
+        row_heights = None
+        if has_colorscale_row:
+            regular_height = 1.0
+            colorscale_height = 0.15
+
+            total_regular_rows = num_rows - 1
+            total_height = total_regular_rows * regular_height + colorscale_height
+            norm_regular = regular_height / total_height
+            norm_colorscale = colorscale_height / total_height
+
+            row_heights = [norm_regular] * total_regular_rows + [norm_colorscale]
+        return row_heights
+
+    def _get_column_widths(self, facet_col_wrap, has_colorscale_col, ratio_of_stat_col) -> list[float]:
+        if has_colorscale_col:
+            colorscale_width = 0.03
+            adjusted_width = 1 - colorscale_width
+            column_widths = []
+
+            for _ in range(facet_col_wrap):
+                heatmap_width = (adjusted_width - ratio_of_stat_col) / facet_col_wrap
+                stats_width = ratio_of_stat_col / facet_col_wrap
+                column_widths.extend([heatmap_width, stats_width])
+
+            column_widths.append(colorscale_width)
+        else:
+            column_widths = [(1 - ratio_of_stat_col) / facet_col_wrap, ratio_of_stat_col / facet_col_wrap] * facet_col_wrap
+        return column_widths
+
+    def _generate_subplot_titles(self, has_colorscale_col, has_colorscale_row):
         subplot_titles = []
         for row_name in self.config.facet_row_order:
             for col_name in self.config.facet_col_order:
@@ -488,99 +551,34 @@ class TimeSeriesDashboardGenerator:
                 else:
                     title = row_name or col_name
                 subplot_titles.append(title)  # Title for heatmap
-                subplot_titles.append(None)  # None for stats
+                subplot_titles.append(None)  # Title for stats
 
-            # Add None for colorscale column if needed
             if has_colorscale_col:
                 subplot_titles.append(row_name)
 
-        # Add None titles for colorscale row if needed
         if has_colorscale_row:
             for col_name in self.config.facet_col_order:
                 subplot_titles.append(col_name)
                 subplot_titles.append(None)
+        return subplot_titles
 
-        # Adjust column widths to accommodate colorscales
-        if has_colorscale_col:
-            colorscale_width = 0.03  # Width of colorscale column
-            adjusted_width = 1 - colorscale_width
-            column_widths = []
-
-            for _ in range(facet_col_wrap):
-                column_widths.extend([
-                    (adjusted_width - ratio_of_stat_col) / facet_col_wrap,  # Heatmap
-                    ratio_of_stat_col / facet_col_wrap  # Stats
-                ])
-
-            # Add width for colorscale column
-            column_widths.append(colorscale_width)
-        else:
-            column_widths = [(1 - ratio_of_stat_col) / facet_col_wrap,
-                             ratio_of_stat_col / facet_col_wrap] * facet_col_wrap
-
-        # Create the figure with appropriate specs
-        specs = [[{} for _ in range(num_cols)] for _ in range(num_rows)]
-
-        # Set row heights if we have a colorscale row
-        row_heights = None
-        if has_colorscale_row:
-            # Make colorscale row smaller (about 15% of a regular row)
-            regular_height = 1.0
-            colorscale_height = 0.15
-
-            # Calculate normalized heights
-            total_regular_rows = num_rows - 1
-            total_height = total_regular_rows * regular_height + colorscale_height
-            norm_regular = regular_height / total_height
-            norm_colorscale = colorscale_height / total_height
-
-            # Create row heights list with equal heights for data rows and smaller height for colorscale row
-            row_heights = [norm_regular] * total_regular_rows + [norm_colorscale]
-
-        # Create figure with adjusted dimensions
-        fig = make_subplots(
-            rows=num_rows,
-            cols=num_cols,
-            subplot_titles=subplot_titles,
-            column_widths=column_widths,
-            row_heights=row_heights,
-            specs=specs
-        )
-        fig.update_layout(
-            plot_bgcolor='rgba(0, 0, 0, 0)',
-            margin=dict(t=50, b=50)  # Add some margin for better spacing
-        )
-
-        return fig
-
-    def _add_traces_to_figure(self, data, fig):
-        """Add heatmap and statistics traces to the figure"""
+    def _add_heatmap_and_stat_traces_to_figure(self, data, fig):
         facet_col_wrap = self.config.facet_col_wrap
 
-        # Make sure to explicitly disable colorbars for all heatmaps
-        # when using per-facet colorscales
         disable_main_colorbars = self.config.per_facet_col_colorscale or self.config.per_facet_row_colorscale
-
-        # Configure time series figure settings to disable colorbars if needed
         if disable_main_colorbars:
             self.config.time_series_figure_kwargs['showscale'] = False
 
-        # Compute global color parameters if not using per-facet colors
         global_color_params = {}
         if not (self.config.per_facet_col_colorscale or self.config.per_facet_row_colorscale):
             global_color_params = ColorManager.compute_color_params(data, self.config)
 
-        # Track current subplot position
         current_row = 1
         row_offset = 0
 
-        # Loop through all row facets
         for row_idx, row_key in enumerate(self.config.facet_row_order):
             col_offset = 0
-
-            # Loop through all column facets
             for col_idx, col_key in enumerate(self.config.facet_col_order):
-                # Calculate grid position based on facet_col_wrap
                 facet_pos = col_idx % facet_col_wrap
                 if facet_pos == 0 and col_idx > 0:
                     row_offset += 1
@@ -588,36 +586,24 @@ class TimeSeriesDashboardGenerator:
                 fig_row = current_row + row_offset
                 fig_col = col_offset + facet_pos * 2 + 1  # +1 because plotly indexing starts at 1
 
-                # Get data for this facet
-                data_col = (row_key, col_key)
+                data_col = facet_key = (row_key, col_key)
                 if data_col not in data.columns:
                     continue
-
                 series = data[data_col]
-                facet_key = (row_key, col_key)
 
-                # Determine which x_axis and groupby_aggregation to use
-                x_axis = self._get_effective_param('x_axis', data_col)
-                groupby_aggregation = self._get_effective_param('groupby_aggregation', data_col)
+                x_axis = self._get_effective_param_for_data_col('x_axis', data_col)
+                groupby_aggregation = self._get_effective_param_for_data_col('groupby_aggregation', data_col)
 
-                # Set hovertemplates
                 self._set_hovertemplates(x_axis)
 
-                # Process data for this facet
                 grouped_data = DataProcessor.get_grouped_data(series, x_axis, groupby_aggregation)
 
-                # Compute color parameters for this facet
-                if self.config.per_facet_col_colorscale or self.config.per_facet_row_colorscale:
-                    color_params = ColorManager.compute_color_params(data, self.config, facet_key)
-                else:
-                    color_params = global_color_params
+                color_params = self._get_color_params_for_facet(data, facet_key, global_color_params)
 
-                # No colorbars on main heatmaps when using separate colorscales
                 show_colorbar = False
                 if not disable_main_colorbars:
                     show_colorbar = (row_idx == 0 and col_idx == 0)
 
-                # Generate and add heatmap trace
                 heatmap_trace = TraceGenerator.get_heatmap_trace(
                     grouped_data,
                     self.config.time_series_figure_kwargs,
@@ -627,7 +613,6 @@ class TimeSeriesDashboardGenerator:
 
                 fig.add_trace(heatmap_trace, row=fig_row, col=fig_col)
 
-                # Update y-axis for heatmap
                 fig.update_yaxes(
                     tickvals=[time(hour=h, minute=0) for h in [0, 6, 12, 18]] + [max(grouped_data.index)],
                     ticktext=['0', '6', '12', '18', '24'],
@@ -636,11 +621,9 @@ class TimeSeriesDashboardGenerator:
                     autorange='reversed',
                 )
 
-                # Special case for year_week x_axis
                 if x_axis == 'year_week':
                     fig.update_xaxes(dtick=8, row=fig_row, col=fig_col)
 
-                # Generate and add statistics trace
                 stats_trace = TraceGenerator.get_stats_trace(
                     series,
                     self.config.stat_aggs,
@@ -650,84 +633,69 @@ class TimeSeriesDashboardGenerator:
 
                 fig.add_trace(stats_trace, row=fig_row, col=fig_col + 1)
 
-                # Update axes for statistics
                 fig.update_xaxes(showgrid=False, row=fig_row, col=fig_col + 1)
                 fig.update_yaxes(showgrid=False, autorange='reversed', row=fig_row, col=fig_col + 1)
 
-            # Move to next row for next facet_row
-            if col_offset == 0:  # Only increment once per facet_row
+            if col_offset == 0:
                 current_row += math.ceil(len(self.config.facet_col_order) / facet_col_wrap)
 
+    def _get_color_params_for_facet(self, data: pd.DataFrame, facet_key: tuple[str, str], global_color_params: dict) -> dict:
+        if self.config.per_facet_col_colorscale or self.config.per_facet_row_colorscale:
+            color_params = ColorManager.compute_color_params(data, self.config, facet_key)
+        else:
+            color_params = global_color_params
+        return color_params
+
     def _add_row_colorscales(self, data, fig):
-        """Add colorscale for each row facet"""
         colorscale_col = self.config.facet_col_wrap * 2 + 1  # Column after all heatmaps and stats
 
-        # Loop through all row facets
         for row_idx, row_key in enumerate(self.config.facet_row_order):
-            # Calculate row position for this facet
             row_pos = row_idx * math.ceil(len(self.config.facet_col_order) / self.config.facet_col_wrap) + 1
 
-            # Use first column's data for this row to get color settings
             facet_key = (row_key, self.config.facet_col_order[0])
-
-            # Get color settings for this row
-            color_params = ColorManager.compute_color_params(data, self.config, facet_key)
-            colorscale = color_params.get('colorscale', 'viridis')
-            z_min = color_params.get('zmin', 0)
-            z_max = color_params.get('zmax', 1)
-
-            # Create and add colorscale trace
+            colorscale, z_max, z_min = self._get_color_settings_for_category(data, facet_key)
             colorscale_trace = TraceGenerator.create_colorscale_trace(
                 z_min, z_max, colorscale, 'v', row_key
             )
 
             fig.add_trace(colorscale_trace, row=row_pos, col=colorscale_col)
-
             fig.update_xaxes(showticklabels=False, showgrid=False, row=row_pos, col=colorscale_col)
             fig.update_yaxes(showticklabels=True, showgrid=False, row=row_pos, col=colorscale_col, side='right')
 
+    def _get_color_settings_for_category(self, data, facet_key):
+        color_params = ColorManager.compute_color_params(data, self.config, facet_key)
+        colorscale = color_params.get('colorscale', 'viridis')
+        z_min = color_params.get('zmin', 0)
+        z_max = color_params.get('zmax', 1)
+        return colorscale, z_max, z_min
+
     def _add_column_colorscales(self, data, fig):
-        """Add colorscale for each column facet"""
-        # Last row is reserved for colorscales
         colorscale_row = math.ceil(len(self.config.facet_col_order) / self.config.facet_col_wrap) * len(
             self.config.facet_row_order) + 1
 
-        # Loop through all column facets
         for col_idx, col_key in enumerate(self.config.facet_col_order):
-            # Calculate column position for this facet
             col_pos = (col_idx % self.config.facet_col_wrap) * 2 + 1
 
-            # Use first row's data for this column to get color settings
             facet_key = (self.config.facet_row_order[0], col_key)
 
-            # Get color settings for this column
-            color_params = ColorManager.compute_color_params(data, self.config, facet_key)
-            colorscale = color_params.get('colorscale', 'viridis')
-            z_min = color_params.get('zmin', 0)
-            z_max = color_params.get('zmax', 1)
+            colorscale, z_max, z_min = self._get_color_settings_for_category(data, facet_key)
 
-            # Create and add colorscale trace
             colorscale_trace = TraceGenerator.create_colorscale_trace(
                 z_min, z_max, colorscale, 'h', col_key
             )
 
             fig.add_trace(colorscale_trace, row=colorscale_row, col=col_pos)
-
-            # Hide axes
             fig.update_xaxes(showticklabels=True, showgrid=False, row=colorscale_row, col=col_pos)
             fig.update_yaxes(showticklabels=False, showgrid=False, row=colorscale_row, col=col_pos)
 
-    def _get_effective_param(self, param_name, data_col):
-        """Get the effective parameter value for a given data column"""
+    def _get_effective_param_for_data_col(self, param_name, data_col):
         param_value = getattr(self.config, param_name)
         if not isinstance(param_value, list):
             return param_value
         else:
-            # Find the intersection between the parameter list and the data column
             return list(set(param_value).intersection(list(data_col)))[0]
 
     def _set_hovertemplates(self, x_axis):
-        """Set hover templates for heatmap and statistics traces"""
         ts_kwargs = self.config.time_series_figure_kwargs
         stat_kwargs = self.config.stat_figure_kwargs
 
@@ -738,9 +706,20 @@ class TimeSeriesDashboardGenerator:
 if __name__ == '__main__':
     url = "https://tubcloud.tu-berlin.de/s/pKttFadrbTKSJKF/download/time-series-lecture-2.csv"
     ts_raw = pd.read_csv(url, index_col=0, parse_dates=True).rename_axis('variable', axis=1)
-    ts_res = ts_raw[['onwind', 'offwind', 'solar']] * 100  # to percent
-    ts_mixed = ts_raw[['prices', 'load', 'solar']]
+    ts_res = ts_raw[['onwind', 'offwind', 'solar']].copy() * 100  # to percent
+    ts_mixed = ts_raw[['prices', 'load', 'solar']].copy()
     ts_mixed['solar'] *= 100  # to percent
+    ts_res_scenarios = pd.concat(
+        {
+            'base': ts_res,
+            'scen1': (ts_res/100) ** 0.5 * 100,
+            'scen2': (ts_res/100) ** 0.2 * 100
+        },
+        axis=1,
+        names=['dataset']
+    )
+    ts_res_scenarios = ts_res_scenarios
+    ts_res_scenarios = ts_res_scenarios.drop(('scen1', 'offwind'), axis=1)  # Remove this to have "missing-data"
 
     generator_raw = TimeSeriesDashboardGenerator(
         x_axis='date',
@@ -751,6 +730,26 @@ if __name__ == '__main__':
     fig_raw = generator_raw.get_figure(ts_res, title='Variables')
     fig_raw.show(renderer='browser')
 
+    # Basic visualization with custom set of stats
+    stats = DashboardConfig.DEFAULT_STATISTICS.copy()
+    stats.pop('Datums')
+    stats.pop('Abs max')
+    stats.pop('Abs mean')
+    stats['Median'] = DashboardConfig.STATISTICS_LIBRARY['Median']
+    stats['% == 0'] = lambda x: (x == 0).sum() / len(x) * 100  # custom agg should be a callable of a pd.Series
+    stats['% > 50'] = lambda x: (x > 50).sum() / len(x) * 100  # custom agg should be a callable of a pd.Series
+
+    generator_custom_stats = TimeSeriesDashboardGenerator(
+        x_axis='date',  # X-axis per date (other options are aggregations per: week, month, year_week, year_month)
+        color_continuous_scale='viridis',  # Color scale
+        facet_row='variable',  # Each variable gets its own row
+        facet_row_order=['solar', 'onwind', 'offwind'],
+        stat_aggs=stats,
+    )
+
+    fig_custom_stats = generator_custom_stats.get_figure(ts_res, title='Renewable Generation Patterns with custom stats')
+    fig_custom_stats.show(renderer='browser')
+
     generator_facet_col_wrap = TimeSeriesDashboardGenerator(
         x_axis='date',
         color_continuous_scale='viridis',
@@ -760,19 +759,6 @@ if __name__ == '__main__':
     )
     fig_raw_facet_col_wrap = generator_facet_col_wrap.get_figure(ts_res, title='Variables')
     fig_raw_facet_col_wrap.show(renderer='browser')
-
-    # Example: Multiple scenarios with per-row colorscales
-    ts_res_scenarios = pd.concat(
-        {
-            'base': ts_res,
-            'scen1': (ts_res/100) ** 0.7 * 100,
-            'scen2': (ts_res/100) ** 0.5 * 100
-        },
-        axis=1,
-        names=['dataset']
-    )
-    ts_res_scenarios = ts_res_scenarios
-    ts_res_scenarios = ts_res_scenarios.drop(('scen1', 'offwind'), axis=1)  # Remove this to have a "missing-data" point
 
     generator_res_scenarios = TimeSeriesDashboardGenerator(
         x_axis='date',
@@ -834,3 +820,33 @@ if __name__ == '__main__':
     )
     fig_raw_facet_col_x_axis = generator_facet_col_different_x_axis.get_figure(ts_mixed, title='Variables')
     fig_raw_facet_col_x_axis.show(renderer='browser')
+
+    # Example: Multiple groupby-aggs
+    generator_aggs = TimeSeriesDashboardGenerator(
+        x_axis='month',
+        facet_col='groupby_aggregation',
+        groupby_aggregation=['min', 'mean', 'max'],
+        color_continuous_scale='viridis',
+        facet_row='variable',
+        facet_row_order=['solar', 'onwind', 'offwind'],
+    )
+    fig_aggs = generator_aggs.get_figure(ts_res, title='Various Groupby Aggs per column')
+    fig_aggs.show(renderer='browser')
+
+    # Example: Multiple groupby-aggs with per-col colorscales
+    generator_agg_per_col = TimeSeriesDashboardGenerator(
+        x_axis='month',
+        facet_col='groupby_aggregation',
+        groupby_aggregation=['min', 'mean', 'max'],
+        facet_row='variable',
+        facet_row_order=['solar', 'onwind', 'offwind'],
+        per_facet_col_colorscale=True,
+        facet_col_color_settings={
+            'min': {'color_continuous_scale': 'Blues', 'range_color': [0, 10]},
+            'mean': {'color_continuous_scale': 'Greens', 'range_color': [0, 70]},
+            'max': {'color_continuous_scale': 'Reds', 'range_color': [0, 100]}
+        },
+        subplots_horizontal_spacing=0.05,
+    )
+    fig_agg_per_col = generator_agg_per_col.get_figure(ts_res, title='Variables')
+    fig_agg_per_col.show(renderer='browser')
