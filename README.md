@@ -10,7 +10,7 @@ A modular Python framework for energy market data analysis, with a focus on scen
 
 MESCAL provides a flexible framework for handling energy market data from various sources (simulations, real market data, scenarios). Its modular architecture allows easy integration with different energy market platforms and tools through dedicated interface packages.
 
-Key features:
+Feature highlights:
 - Unified interface for handling energy systems data across different platforms
 - Built-in scenario comparison capabilities
 - Efficient data handling for multi-scenario and multi-comparison studies
@@ -19,7 +19,6 @@ Key features:
 - Visualization modules for interactive maps, time-series dashboards, and more...
 - Flexible data aggregation and transformation tools
 - Support for time series analysis and topology-based computations
-- 
 
 This is the foundation package for a whole suite of libraries and repositories. 
 In most cases, you will want to combine this foundation package with at least one mescal-platform-interface (e.g. mescal-pypsa, mescal-plexos, ...)
