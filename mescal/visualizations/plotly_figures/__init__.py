@@ -1,1 +1,1 @@
-from mescal.visualizations.plotly_figures.timeseries_dashboard import TimeSeriesDashboard
+from mescal.visualizations.plotly_figures.timeseries_dashboard import TimeSeriesDashboardGenerator

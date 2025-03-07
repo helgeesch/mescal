@@ -47,8 +47,8 @@ class QuantityTypeEnum(Enum):
     EXTENSIVE = "extensive"  # welfare, volume, energy
 
 
-# class GranularityTypeEnum(Enum):
-#     PT15 = 15
-#     PT30 = 30
-#     PT60 = 60
-#     PT120 = 120
+class ComparisonTypeEnum(Enum):
+    """Various Comparison Types for DatasetComparison class' fetch method."""
+    VARIATION = "variation"  # Show only variation's model_df
+    BOTH = "both"  # Show both variation and reference side by side
+    DELTA = "delta"  # Show delta for numeric values, variation for non-numeric

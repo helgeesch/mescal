@@ -11,12 +11,12 @@ class PrimaryColors:
     blue = '#0984e3'
     red = '#d63031'
     pink = '#e84393'
-    green_light = '# badc58'
-    green_bold = '# 6ab04c'
-    orange_light = '# fdcb6e'
-    orange_bold = '# e17055'
-    purple_light = '# a29bfe'
-    purple_bold = '# 6c5ce7'
+    green_light = '#badc58'
+    green_bold = '#6ab04c'
+    orange_light = '#fdcb6e'
+    orange_bold = '#e17055'
+    purple_light = '#a29bfe'
+    purple_bold = '#6c5ce7'
 
 
 class SequentialColors:
@@ -44,9 +44,9 @@ class CyclicalColors:
 
 class QualitativeColors:
     default = [
+        PrimaryColors.blue,
         PrimaryColors.mint,
         PrimaryColors.cyan,
-        PrimaryColors.blue,
         PrimaryColors.red,
         PrimaryColors.pink,
         PrimaryColors.green_light,
@@ -64,6 +64,9 @@ class ColorPalette:
     diverging = DivergingColors
     cyclical = CyclicalColors
     qualitative = QualitativeColors
+
+
+colors = ColorPalette
 
 
 @dataclass

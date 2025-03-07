@@ -84,6 +84,10 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
             )
         return self._flag_index
 
+    @property
+    def database(self) -> Database | None:
+        return self._database
+
     def add_kpis(self, kpis: Iterable[KPI | KPIFactory | Type[KPI]]):
         for kpi in kpis:
             self.add_kpi(kpi)
@@ -130,8 +134,24 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     def accepted_flags(self) -> set[FlagType]:
         return set()
 
+    def get_accepted_flags_containing_x(self, x: str, match_case: bool = False) -> set[FlagType]:
+        """
+        Returns a set with all flags that are accepted and whose string contain x.
+
+        Example to retrieve all flags for generators:
+        >>> ds = PyPSADataset()
+        >>> ds.get_accepted_flags_containing_x('generators')
+        {'generators', 'generators_t.p', 'generators_t.efficiency', ...}
+        """
+        if match_case:
+            return {f for f in self.accepted_flags if x in str(f)}
+        x_lower = x.lower()
+        return {f for f in self.accepted_flags if x_lower in str(f).lower()}
+
     def flag_is_accepted(self, flag: FlagType) -> bool:
         """
+        Boolean check whether a flag is accepted by the Dataset.
+
         This method can be optionally overridden in any child-class
         in case you want to follow logic instead of the explicit set of accepted_flags.
         """
@@ -209,7 +229,7 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
             **kwargs
     ) -> Union[pd.Series, pd.DataFrame]:
         dfs = {
-            flag: self.fetch(flag, config, **kwargs)
+            str(flag): self.fetch(flag, config, **kwargs)
             for flag in flags
         }
         df = pd.concat(

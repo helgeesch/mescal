@@ -39,7 +39,6 @@ class CongestionRentCalculator:
             if not ref_index.equals(v.index):
                 raise ValueError(f'All indices of provided series must be equal.')
 
-
     @property
     def congestion_rent_up(self) -> pd.Series:
         return self.granularity_hrs * (
