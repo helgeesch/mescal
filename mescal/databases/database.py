@@ -6,7 +6,7 @@ import pandas as pd
 from mescal.typevars import DatasetType, FlagType, DatasetConfigType
 
 
-class DataBase(Generic[DatasetType, DatasetConfigType], ABC):
+class Database(Generic[DatasetType, DatasetConfigType], ABC):
     @abstractmethod
     def get(
             self,

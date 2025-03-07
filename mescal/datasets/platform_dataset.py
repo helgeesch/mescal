@@ -7,7 +7,7 @@ import inspect
 from mescal.datasets.dataset import Dataset
 from mescal.datasets.dataset_collection import DatasetLinkCollection
 from mescal.typevars import FlagType, DatasetType, DatasetConfigType, FlagIndexType
-from mescal.databases.data_base import DataBase
+from mescal.databases.database import Database
 
 
 @dataclass
@@ -112,7 +112,7 @@ class PlatformDataset(
             name: str = None,
             flag_index: FlagIndexType = None,
             attributes: dict = None,
-            data_base: DataBase = None,
+            database: Database = None,
             config: DatasetConfigType = None,
             **kwargs
     ):
@@ -121,7 +121,7 @@ class PlatformDataset(
             name=name,
             flag_index=flag_index,
             attributes=attributes,
-            data_base=data_base,
+            database=database,
             config=config,
         )
         interpreter_args = self._prepare_interpreter_initialization_args(kwargs)

@@ -3,10 +3,10 @@ import os
 import pandas as pd
 
 from mescal.typevars import DatasetType, FlagType, DatasetConfigType
-from mescal.databases.data_base import DataBase
+from mescal.databases.database import Database
 
 
-class PickleDataBase(DataBase):
+class PickleDatabase(Database):
     def __init__(self, folder_path: str):
         self._folder_path = folder_path
         self._ensure_folder_exists(folder_path)

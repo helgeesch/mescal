@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from mescal.typevars import DatasetConfigType, FlagType, FlagIndexType
-from mescal.databases.data_base import DataBase
+from mescal.databases.database import Database
 from mescal.utils.string_conventions import to_lower_snake
 from mescal.flag.flag_index import EmptyFlagIndex
 from mescal.utils.logging import get_logger
@@ -59,14 +59,14 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
             parent_dataset: Dataset = None,
             flag_index: FlagIndexType = None,
             attributes: dict = None,
-            data_base: DataBase = None,
+            database: Database = None,
             config: DatasetConfigType = None
     ):
         self.name = name or f'{self.__class__.__name__}_{str(id(self))}'
         self._flag_index = flag_index or EmptyFlagIndex()
         self._parent_dataset = parent_dataset
         self._attributes: dict = attributes if attributes is not None else dict()
-        self._data_base = data_base
+        self._database = database
         self._config = config
         self.dotfetch = _DotNotationFetcher(self)
 
@@ -148,17 +148,17 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     @flag_must_be_accepted
     def fetch(self, flag: FlagType, config: dict | DatasetConfigType = None, **kwargs) -> pd.Series | pd.DataFrame:
         effective_config = self._prepare_config(config)
-        use_database = self._data_base is not None and effective_config.use_database
+        use_database = self._database is not None and effective_config.use_database
 
         if use_database:
-            if self._data_base.key_is_up_to_date(self, flag, config=effective_config, **kwargs):
-                return self._data_base.get(self, flag, config=effective_config, **kwargs)
+            if self._database.key_is_up_to_date(self, flag, config=effective_config, **kwargs):
+                return self._database.get(self, flag, config=effective_config, **kwargs)
 
         raw_data = self._fetch(flag, effective_config, **kwargs)
         processed_data = self._post_process_data(raw_data, flag, effective_config)
 
         if use_database:
-            self._data_base.set(self, flag, config=effective_config, value=processed_data, **kwargs)
+            self._database.set(self, flag, config=effective_config, value=processed_data, **kwargs)
 
         return processed_data.copy()
 
