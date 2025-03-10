@@ -322,12 +322,15 @@ class DatasetConcatCollection(
             **kwargs
     ) -> pd.Series | pd.DataFrame:
         """Fetch method that merges dataframes from all child datasets, similar to DatasetMergeCollection."""
-        temp_merge_collection = DatasetMergeCollection(
+        temp_merge_collection = self.get_merged_dataset_collection(keep_first)
+        return temp_merge_collection.fetch(flag, config, **kwargs)
+
+    def get_merged_dataset_collection(self, keep_first: bool = True) -> 'DatasetMergeCollection':
+        return DatasetMergeCollection(
             datasets=self.datasets,
-            name=f"{self.name}_temp_merge",
+            name=f"{self.name} merged",
             keep_first=keep_first
         )
-        return temp_merge_collection.fetch(flag, config, **kwargs)
 
     def _fetch(
             self,
