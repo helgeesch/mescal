@@ -8,10 +8,6 @@ from mescal.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class ValidationError(Exception):
-    pass
-
-
 class Validation(ABC):
     @abstractmethod
     def validate(self, dataset: Dataset) -> bool:

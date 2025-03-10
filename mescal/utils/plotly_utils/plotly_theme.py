@@ -5,7 +5,15 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 
-class PrimaryColors:
+class ConstantsIterable:
+    @classmethod
+    def __iter__(cls):
+        for attr_name in dir(cls):
+            if not attr_name.startswith('__') and not callable(getattr(cls, attr_name)):
+                yield attr_name, getattr(cls, attr_name)
+
+
+class PrimaryColors(ConstantsIterable):
     mint = '#00b894'
     cyan = '#00cec9'
     blue = '#0984e3'
@@ -19,7 +27,7 @@ class PrimaryColors:
     purple_bold = '#6c5ce7'
 
 
-class SequentialColors:
+class SequentialColors(ConstantsIterable):
     mint_blue_red = ['#00b894', '#0984e3', '#d63031']
     blue_cyan_pink = ['#0984e3', '#00cec9', '#e84393']
     shades_of_mint = ['#e6fff7', '#55efc4', '#00b894', '#009677', '#006b54']
@@ -30,7 +38,7 @@ class SequentialColors:
     default = mint_blue_red
 
 
-class DivergingColors:
+class DivergingColors(ConstantsIterable):
     blue_mint = SequentialColors.shades_of_blue[::-1] + SequentialColors.shades_of_mint
     red_mint = SequentialColors.shades_of_red[::-1] + SequentialColors.shades_of_mint
     pink_blue = SequentialColors.shades_of_pink[::-1] + SequentialColors.shades_of_blue
@@ -38,11 +46,11 @@ class DivergingColors:
     default = blue_mint
 
 
-class CyclicalColors:
+class CyclicalColors(ConstantsIterable):
     default = None
 
 
-class QualitativeColors:
+class QualitativeColors(ConstantsIterable):
     default = [
         PrimaryColors.blue,
         PrimaryColors.mint,
