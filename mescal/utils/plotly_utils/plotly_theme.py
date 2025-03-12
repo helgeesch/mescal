@@ -7,10 +7,22 @@ import plotly.io as pio
 
 class ConstantsIterable:
     @classmethod
-    def __iter__(cls):
+    def items(cls):
         for attr_name in dir(cls):
             if not attr_name.startswith('__') and not callable(getattr(cls, attr_name)):
                 yield attr_name, getattr(cls, attr_name)
+
+    @classmethod
+    def values(cls):
+        for attr_name in dir(cls):
+            if not attr_name.startswith('__') and not callable(getattr(cls, attr_name)):
+                yield getattr(cls, attr_name)
+
+    @classmethod
+    def keys(cls):
+        for attr_name in dir(cls):
+            if not attr_name.startswith('__') and not callable(getattr(cls, attr_name)):
+                yield attr_name
 
 
 class PrimaryColors(ConstantsIterable):
