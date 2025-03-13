@@ -16,69 +16,55 @@ class UnitRegistryNotComplete(Exception):
         super().__init__(base + message)
 
 
-class UnitRegistrySingleton:
-    _instance: ClassVar[UnitRegistry | None] = None
+ureg = UnitRegistry()
 
-    @classmethod
-    def get_registry(cls) -> UnitRegistry:
-        if cls._instance is None:
-            cls._instance = cls._create_registry()
-        return cls._instance
+ureg.define("Wh = [energy]")
+ureg.define("kWh = 1e3 Wh = kWh")
+ureg.define("MWh = 1e6 Wh = MWh")
+ureg.define("GWh = 1e9 Wh = GWh")
+ureg.define("TWh = 1e12 Wh = TWh")
 
-    @classmethod
-    def _create_registry(cls) -> UnitRegistry:
-        ureg = UnitRegistry()
-        set_application_registry(ureg)
+ureg.define("W = [power]")
+ureg.define("kW = 1e3 W = kW")
+ureg.define("MW = 1e6 W = MW")
+ureg.define("GW = 1e9 W = GW")
+ureg.define("TW = 1e12 W = TW")
 
-        ureg.define("Wh = [energy]")
-        ureg.define("kWh = 1e3 Wh = kWh")
-        ureg.define("MWh = 1e6 Wh = MWh")
-        ureg.define("GWh = 1e9 Wh = GWh")
-        ureg.define("TWh = 1e12 Wh = TWh")
+ureg.define("EUR = [currency]")
+ureg.define("EUR_cent = 1e-2 EUR")
+ureg.define("kEUR = 1e3 EUR = kEUR")
+ureg.define("MEUR = 1e6 EUR = MEUR")
+ureg.define("BEUR = 1e9 EUR = BEUR")
+ureg.define("TEUR = 1e12 EUR = TEUR")
 
-        ureg.define("W = [power]")
-        ureg.define("kW = 1e3 W = kW")
-        ureg.define("MW = 1e6 W = MW")
-        ureg.define("GW = 1e9 W = GW")
-        ureg.define("TW = 1e12 W = TW")
+ureg.define("EUR_per_W = EUR / W = [price_for_capacity]")
+ureg.define("EUR_per_MW = EUR / MW")
 
-        ureg.define("EUR = [currency]")
-        ureg.define("EUR_cent = 1e-2 EUR")
-        ureg.define("kEUR = 1e3 EUR = kEUR")
-        ureg.define("MEUR = 1e6 EUR = MEUR")
-        ureg.define("BEUR = 1e9 EUR = BEUR")
-        ureg.define("TEUR = 1e12 EUR = TEUR")
+ureg.define("EUR_per_Wh = EUR / Wh = [price_for_energy]")
+ureg.define("EUR_per_MWh = EUR / MWh")
 
-        ureg.define("EUR_per_W = EUR / W = [price_for_capacity]")
-        ureg.define("EUR_per_MW = EUR / MW")
+ureg.define("minute = [time]")
+ureg.define("hour = 60 minute = hour")
+ureg.define("day = 24 hour = day")
+ureg.define("week = 7 day = week")
+ureg.define("year = 365 day = year")
 
-        ureg.define("EUR_per_Wh = EUR / Wh = [price_for_energy]")
-        ureg.define("EUR_per_MWh = EUR / MWh")
+ureg.define("W_per_min = W / minute = [ramping]")
+ureg.define("MW_per_min = MW / minute")
+ureg.define("MW_per_hour = MW / hour")
 
-        ureg.define("minute = [time]")
-        ureg.define("hour = 60 minute = hour")
-        ureg.define("day = 24 hour = day")
-        ureg.define("week = 7 day = week")
-        ureg.define("year = 365 day = year")
+ureg.define("EUR_per_W_per_min = EUR / (W / minute) = [price_for_ramping]")
+ureg.define("EUR_per_MW_per_min = EUR / (MW / minute)")
+ureg.define("EUR_per_MW_per_hour = EUR / (MW / hour)")
 
-        ureg.define("W_per_min = W / minute = [ramping]")
-        ureg.define("MW_per_min = MW / minute")
-        ureg.define("MW_per_hour = MW / hour")
-
-        ureg.define("EUR_per_W_per_min = EUR / (W / minute) = [price_for_ramping]")
-        ureg.define("EUR_per_MW_per_min = EUR / (MW / minute)")
-        ureg.define("EUR_per_MW_per_hour = EUR / (MW / hour)")
-
-        ureg.define("MTU = [mtu]")
-        ureg.define("per_unit = [pu]")
-        ureg.define("perc = [percentage]")
-        ureg.define("percent_base = 1e-2 percent = percent_base")
+ureg.define("MTU = [mtu]")
+ureg.define("per_unit = [pu]")
+ureg.define("perc = [percentage]")
+ureg.define("percent_base = 1e-2 percent = percent_base")
 
 
-        ureg.define("NaU = []")  # Not a Unit; no physical meaning, dimensionless
-        ureg.define("MissingUnit = []")  # For missing units
-
-        return ureg
+ureg.define("NaU = []")  # Not a Unit; no physical meaning, dimensionless
+ureg.define("MissingUnit = []")  # For missing units
 
 
 class _IterableUnitsMeta(type):
@@ -87,8 +73,7 @@ class _IterableUnitsMeta(type):
 
 
 class Units(metaclass=_IterableUnitsMeta):
-    _ureg = UnitRegistrySingleton.get_registry()
-    # _ureg = UnitRegistrySingleton.get_registry()
+    _ureg = ureg
     Unit = Unit
     Quantity = Quantity
 
