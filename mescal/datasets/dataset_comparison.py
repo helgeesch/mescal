@@ -12,7 +12,7 @@ from mescal.typevars import FlagType, DatasetConfigType, FlagIndexType, DatasetT
 from mescal.utils.pandas_utils.is_numeric import pd_is_numeric
 
 
-class ComparisonAttributeUse(Enum):
+class ComparisonAttributesSourceEnum(Enum):
     USE_VARIATION_ATTS = auto()
     USE_REFERENCE_ATTS = auto()
     USE_INTERSECTION_ATTS = auto()
@@ -22,6 +22,7 @@ class DatasetComparison(
     Generic[DatasetType, DatasetConfigType, FlagType, FlagIndexType],
     DatasetCollection[DatasetType, DatasetConfigType, FlagType, FlagIndexType]
 ):
+    COMPARISON_ATTRIBUTES_SOURCE = ComparisonAttributesSourceEnum.USE_VARIATION_ATTS
     COMPARISON_NAME_JOIN = ' vs '
     VARIATION_DS_ATT_KEY = 'variation_dataset'
     REFERENCE_DS_ATT_KEY = 'reference_dataset'
@@ -49,10 +50,10 @@ class DatasetComparison(
 
     @property
     def attributes(self) -> dict:
-        match self.COMPARISON_NAME_JOIN:
-            case ComparisonAttributeUse.USE_VARIATION_ATTS:
+        match self.COMPARISON_ATTRIBUTES_SOURCE:
+            case ComparisonAttributesSourceEnum.USE_VARIATION_ATTS:
                 atts = self.variation_dataset.attributes.copy()
-            case ComparisonAttributeUse.USE_REFERENCE_ATTS:
+            case ComparisonAttributesSourceEnum.USE_REFERENCE_ATTS:
                 atts = self.reference_dataset.attributes.copy()
             case _:
                 atts = super().attributes

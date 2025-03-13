@@ -1,6 +1,7 @@
 from __future__ import annotations
+
+from typing import Generic, Iterable, TYPE_CHECKING
 from abc import ABC, abstractmethod
-from typing import Iterator, Callable, Generic, Type, Iterable, TYPE_CHECKING
 
 import pandas as pd
 
@@ -8,7 +9,6 @@ from mescal.datasets.dataset import Dataset
 from mescal.flag.flag_index import FlagIndex
 from mescal.utils.pandas_utils.is_numeric import pd_is_numeric
 from mescal.utils.logging import get_logger
-from mescal.utils.pandas_utils.combine_df import combine_dfs
 from mescal.utils.set_aggregations import nested_union
 from mescal.utils.intersect_dicts import get_intersection_of_dicts
 from mescal.typevars import DatasetType, DatasetConfigType, FlagType, FlagIndexType
@@ -77,7 +77,7 @@ class DatasetCollection(
                 for kpi in ds.get_merged_kpi_collection(deep=deep):
                     all_kpis.add(kpi)
 
-        return KPICollection(all_kpis)0
+        return KPICollection(all_kpis)
 
     def add_kpis_to_all_sub_datasets(self, kpis: Iterable[KPIFactory]):
         for kpi in kpis:
