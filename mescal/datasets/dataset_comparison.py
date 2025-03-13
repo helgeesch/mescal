@@ -35,8 +35,7 @@ class DatasetComparison(
             attributes: dict = None,
             config: DatasetConfigType = None,
     ):
-        if name is None:
-            name = variation_dataset.name + self.COMPARISON_NAME_JOIN + reference_dataset.name
+        name = name or self._get_auto_generated_name(variation_dataset, reference_dataset)
 
         super().__init__(
             [reference_dataset, variation_dataset],
@@ -47,6 +46,9 @@ class DatasetComparison(
 
         self.variation_dataset = variation_dataset
         self.reference_dataset = reference_dataset
+
+    def _get_auto_generated_name(self, variation_dataset: Dataset, reference_dataset: Dataset) -> str:
+        return variation_dataset.name + self.COMPARISON_NAME_JOIN + reference_dataset.name
 
     @property
     def attributes(self) -> dict:
@@ -67,7 +69,7 @@ class DatasetComparison(
             config: dict | DatasetConfigType = None,
             comparison_type: ComparisonTypeEnum = ComparisonTypeEnum.DELTA,
             replace_unchanged_values_by_nan: bool = False,
-            fill_value: float | int | None = 0,
+            fill_value: float | int | None = None,
             **kwargs
     ) -> pd.Series | pd.DataFrame:
         return super().fetch(
@@ -85,7 +87,7 @@ class DatasetComparison(
             effective_config: DatasetConfigType,
             comparison_type: ComparisonTypeEnum = ComparisonTypeEnum.DELTA,
             replace_unchanged_values_by_nan: bool = False,
-            fill_value: float | int | None = 0,
+            fill_value: float | int | None = None,
             **kwargs
     ) -> pd.Series | pd.DataFrame:
         df_var = self.variation_dataset.fetch(flag, effective_config, **kwargs)

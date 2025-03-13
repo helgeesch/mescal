@@ -2,7 +2,7 @@ import folium
 
 
 class CustomLatLngPopup(folium.LatLngPopup):
-    # TODO: class desc
+    """Module enables a simple Popup showing the lat and lon coordinates upon a click anywhere in the map."""
     _template = folium.features.Template("""
         {% macro script(this, kwargs) %}
             var {{this.get_name()}} = L.popup();

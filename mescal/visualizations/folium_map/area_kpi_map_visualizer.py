@@ -6,7 +6,7 @@ from mescal.study_manager import StudyManager
 from mescal.units import Units
 from mescal.utils.logging import get_logger
 from mescal.utils.dict_combinations import dict_combination_iterator
-from mescal.utils.color_utils.segmented_colormap_2 import SegmentedColorMap
+from mescal.utils.color_utils.segmented_colormap import SegmentedColorMap
 logger = get_logger(__name__)
 
 

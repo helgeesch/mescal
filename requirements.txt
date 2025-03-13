@@ -3,7 +3,6 @@ geopandas
 shapely
 plotly
 folium
-aenum
 branca
 jinja2
 numpy
