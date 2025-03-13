@@ -1,8 +1,7 @@
 from typing import Iterable, Callable
 import re
 from collections import Counter
-
-from aenum import Enum
+from enum import Enum
 
 
 class StringConventionEnum(Enum):
