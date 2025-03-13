@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aenum import Enum
+from enum import Enum
 
 
 class ItemTypeEnum(Enum):
