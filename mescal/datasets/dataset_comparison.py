@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Generic
-from aenum import Enum, auto
+from enum import Enum, auto
 
 import pandas as pd
 
