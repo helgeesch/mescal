@@ -3,7 +3,7 @@ from enum import Enum
 import pandas as pd
 
 from mescal.enums import QuantityTypeEnum
-from mescal.utils.pandas_utils.granularity_analyzer import TimeSeriesGranularityAnalyzer
+from mescal.energy_data_handling.granularity_analyzer import TimeSeriesGranularityAnalyzer
 
 
 class GranularityConversionError(Exception):

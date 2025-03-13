@@ -18,7 +18,7 @@ class CongestionRentCalculator:
 
     def __post_init__(self):
         if isinstance(self.sent_up.index, pd.DatetimeIndex):
-            from mescal.utils.pandas_utils.granularity_analyzer import TimeSeriesGranularityAnalyzer
+            from mescal.energy_data_handling.granularity_analyzer import TimeSeriesGranularityAnalyzer
             analyzer = TimeSeriesGranularityAnalyzer(strict_mode=False)
             self.granularity_hrs = analyzer.get_granularity_as_hours(self.sent_up.index)
         else:

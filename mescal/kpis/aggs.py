@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from mescal.units import Units
-from mescal.utils.pandas_utils.granularity_analyzer import TimeSeriesGranularityAnalyzer
+from mescal.energy_data_handling.granularity_analyzer import TimeSeriesGranularityAnalyzer
 
 if TYPE_CHECKING:
     from mescal.kpis.kpi_base import KPI_VALUE_TYPES
