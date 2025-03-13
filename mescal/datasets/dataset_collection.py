@@ -62,31 +62,10 @@ class DatasetCollection(
         return self._flag_index
 
     @property
-    def attributes(self) -> pd.Series:
-        atts = self._attributes.copy()
-        child_dataset_atts = [ds.attributes.to_dict() for ds in self.datasets]
+    def attributes(self) -> dict:
+        child_dataset_atts = [ds.attributes_series.to_dict() for ds in self.datasets]
         attributes_that_all_childs_have_in_common = get_intersection_of_dicts(child_dataset_atts)
-        for key in atts.keys():
-            attributes_that_all_childs_have_in_common.pop(key, None)
-        atts.update(attributes_that_all_childs_have_in_common)
-        return pd.Series(atts, name=self.name)
-
-    @property
-    def attributes_df(self) -> pd.DataFrame:
-        return pd.concat(
-            {ds.name: ds.attributes for ds in self.datasets},
-            axis=1,
-            names=['dataset']
-        ).rename_axis('attribute').T
-
-    def get_kpi_df(self, **kwargs) -> pd.DataFrame:
-        # TODO: concat axis
-        # TODO: uniform order of magnitude per KPI / KPI category
-        return pd.concat(
-            {ds.name: ds.get_kpi_series(**kwargs) for ds in self.datasets},
-            axis=1,
-            names=['dataset']
-        )
+        return {**attributes_that_all_childs_have_in_common, **self._attributes.copy()}
 
     def get_merged_kpi_collection(self, deep: bool = True) -> 'KPICollection':
         from mescal.kpis.kpi_collection import KPICollection
@@ -98,7 +77,7 @@ class DatasetCollection(
                 for kpi in ds.get_merged_kpi_collection(deep=deep):
                     all_kpis.add(kpi)
 
-        return KPICollection(all_kpis)
+        return KPICollection(all_kpis)0
 
     def add_kpis_to_all_sub_datasets(self, kpis: Iterable[KPIFactory]):
         for kpi in kpis:
@@ -305,14 +284,12 @@ class DatasetConcatCollection(
         self.concat_top = concat_top
         self.concat_level_name = concat_level_name if concat_level_name is not None else 'dataset'
 
-    def get_kpi_df(self, **kwargs) -> pd.DataFrame:
-        # TODO: concat axis
-        # TODO: uniform order of magnitude per KPI / KPI category
+    def get_attributes_concat_df(self) -> pd.DataFrame:
         return pd.concat(
-            {ds.name: ds.get_kpi_series(**kwargs) for ds in self.datasets},
+            {ds.name: ds.attributes_series for ds in self.datasets},
             axis=1,
             names=[self.concat_level_name]
-        )
+        ).rename_axis('attribute').T
 
     def fetch_merged(
             self,

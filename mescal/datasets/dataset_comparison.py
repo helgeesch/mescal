@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Generic
+from aenum import Enum, auto
 
 import pandas as pd
 
@@ -11,10 +12,20 @@ from mescal.typevars import FlagType, DatasetConfigType, FlagIndexType, DatasetT
 from mescal.utils.pandas_utils.is_numeric import pd_is_numeric
 
 
+class ComparisonAttributeUse(Enum):
+    USE_VARIATION_ATTS = auto()
+    USE_REFERENCE_ATTS = auto()
+    USE_INTERSECTION_ATTS = auto()
+
+
 class DatasetComparison(
     Generic[DatasetType, DatasetConfigType, FlagType, FlagIndexType],
     DatasetCollection[DatasetType, DatasetConfigType, FlagType, FlagIndexType]
 ):
+    COMPARISON_NAME_JOIN = ' vs '
+    VARIATION_DS_ATT_KEY = 'variation_dataset'
+    REFERENCE_DS_ATT_KEY = 'reference_dataset'
+
     def __init__(
             self,
             variation_dataset: Dataset,
@@ -24,7 +35,7 @@ class DatasetComparison(
             config: DatasetConfigType = None,
     ):
         if name is None:
-            name = variation_dataset.name + ' vs ' + reference_dataset.name
+            name = variation_dataset.name + self.COMPARISON_NAME_JOIN + reference_dataset.name
 
         super().__init__(
             [reference_dataset, variation_dataset],
@@ -35,6 +46,19 @@ class DatasetComparison(
 
         self.variation_dataset = variation_dataset
         self.reference_dataset = reference_dataset
+
+    @property
+    def attributes(self) -> dict:
+        match self.COMPARISON_NAME_JOIN:
+            case ComparisonAttributeUse.USE_VARIATION_ATTS:
+                atts = self.variation_dataset.attributes.copy()
+            case ComparisonAttributeUse.USE_REFERENCE_ATTS:
+                atts = self.reference_dataset.attributes.copy()
+            case _:
+                atts = super().attributes
+        atts[self.VARIATION_DS_ATT_KEY] = self.variation_dataset.name
+        atts[self.REFERENCE_DS_ATT_KEY] = self.reference_dataset.name
+        return atts
 
     def fetch(
             self,
@@ -66,14 +90,14 @@ class DatasetComparison(
         df_var = self.variation_dataset.fetch(flag, effective_config, **kwargs)
         df_ref = self.reference_dataset.fetch(flag, effective_config, **kwargs)
 
-        if comparison_type == ComparisonTypeEnum.VARIATION:
-            return self._get_variation_comparison(df_var, df_ref, replace_unchanged_values_by_nan)
-        elif comparison_type == ComparisonTypeEnum.BOTH:
-            return self._get_both_comparison(df_var, df_ref, replace_unchanged_values_by_nan)
-        elif comparison_type == ComparisonTypeEnum.DELTA:
-            return self._get_delta_comparison(df_var, df_ref, replace_unchanged_values_by_nan, fill_value)
-        else:
-            raise ValueError(f"Unsupported comparison_type: {comparison_type}")
+        match comparison_type:
+            case ComparisonTypeEnum.VARIATION:
+                return self._get_variation_comparison(df_var, df_ref, replace_unchanged_values_by_nan)
+            case ComparisonTypeEnum.BOTH:
+                return self._get_both_comparison(df_var, df_ref, replace_unchanged_values_by_nan)
+            case ComparisonTypeEnum.DELTA:
+                return self._get_delta_comparison(df_var, df_ref, replace_unchanged_values_by_nan, fill_value)
+        raise ValueError(f"Unsupported comparison_type: {comparison_type}")
 
     def _values_are_equal(self, val1, val2) -> bool:
         if pd.isna(val1) and pd.isna(val2):

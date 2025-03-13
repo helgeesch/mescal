@@ -101,20 +101,28 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
             kpi = kpi.from_factory(self)
         self.kpi_collection.add_kpi(kpi)
 
-    def get_kpi_series(self, **kwargs) -> pd.Series:
-        return self.kpi_collection.get_kpi_series(**kwargs)
-
     def clear_kpi_collection(self):
         from mescal.kpis import KPICollection
         self.kpi_collection = KPICollection()
 
     @property
-    def attributes(self) -> pd.Series:
+    def attributes(self) -> dict:
+        return self._attributes
+
+    def get_attributes_series(self) -> pd.Series:
         att_series = pd.Series(self._attributes, name=self.name)
         return att_series
 
     def set_attributes(self, **kwargs):
-        self._attributes.update(kwargs)
+        for key, value in kwargs.items():
+            if not isinstance(key, str):
+                raise TypeError(f'Attribute keys must be of type str. Your key {key} is of type {type(key)}.')
+            if not isinstance(value, (bool, int, float, str)):
+                raise TypeError(
+                    f'Attribute values must be of type (bool, int, flaot, str). '
+                    f'Your value for {key} ({value}) is of type {type(value)}.'
+                )
+            self._attributes[key] = value
 
     @property
     def parent_dataset(self) -> 'DatasetLinkCollection':
