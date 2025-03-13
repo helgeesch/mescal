@@ -24,11 +24,11 @@ class LineFlowData:
 
     def from_mw_to_mwh(self) -> 'LineFlowData':
         # TODO
-        pass
+        raise NotImplementedError
 
     def from_mwh_to_mw(self) -> 'LineFlowData':
         # TODO
-        pass
+        raise NotImplementedError
 
     @classmethod
     def from_net_flow_without_losses(cls, net_flow: pd.DataFrame) -> "LineFlowData":
