@@ -4,6 +4,7 @@ import folium
 from mescal.kpis import KPI
 from mescal.study_manager import StudyManager
 from mescal.visualizations.styling.segmented_colormap import SegmentedColorMapLegend
+from mescal.visualizations.styling.segmented_line_width_map import SegmentedLineWidthMapLegend
 from mescal.visualizations.folium_map.kpi_map_visualizer_base import KPIToMapVisualizerBase
 
 
@@ -78,13 +79,13 @@ class LineKPIMapVisualizer(GeometryKPIMapVisualizer):
             self,
             study_manager: StudyManager,
             colormap: SegmentedColorMapLegend,
-            widthmap: LineWidthMap | float = 3.0,
+            widthmap: SegmentedLineWidthMapLegend | float = 3.0,
             print_values_on_map: bool = True,
             include_related_kpis_in_tooltip: bool = False,
     ):
         super().__init__(study_manager, print_values_on_map, include_related_kpis_in_tooltip)
         self.colormap = colormap
-        self.widthmap = widthmap if isinstance(widthmap, LineWidthMap) else lambda x: widthmap
+        self.widthmap = widthmap if isinstance(widthmap, SegmentedLineWidthMapLegend) else lambda x: widthmap
 
     def _get_style_kwargs(self, kpi: KPI) -> dict:
         return {

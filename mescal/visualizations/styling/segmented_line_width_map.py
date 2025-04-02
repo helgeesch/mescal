@@ -4,7 +4,7 @@ import numpy as np
 from branca.element import MacroElement, Template
 
 
-class LineWidthMap:
+class SegmentedLineWidthMap:
     """Maps values to line widths using customizable segments similar to SegmentedColorMap."""
 
     def __init__(
@@ -71,7 +71,7 @@ class LineWidthMap:
         return idx_low, idx_high, pos_idx
 
 
-class LineWidthMapLegend(LineWidthMap, MacroElement):
+class SegmentedLineWidthMapLegend(SegmentedLineWidthMap, MacroElement):
     _template = Template("""
     {% macro header(this, kwargs) %}
         <style>
@@ -130,7 +130,7 @@ class LineWidthMapLegend(LineWidthMap, MacroElement):
             tick_font_size: int = 12,
             show_pixel_values: bool = False
     ):
-        LineWidthMap.__init__(self, segments, na_width)
+        SegmentedLineWidthMap.__init__(self, segments, na_width)
         MacroElement.__init__(self)
         self._name = "LineWidthMapLegend"
 
@@ -226,7 +226,7 @@ if __name__ == '__main__':
         (30, 50): 8.0
     }
 
-    width_map = LineWidthMapLegend(
+    width_map = SegmentedLineWidthMapLegend(
         segments=width_segments,
         title="Flow Volume (MW)",
         background_color="#f5f5f5",
