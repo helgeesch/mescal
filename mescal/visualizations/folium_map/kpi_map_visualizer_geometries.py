@@ -3,7 +3,7 @@ import folium
 
 from mescal.kpis import KPI
 from mescal.study_manager import StudyManager
-from mescal.visualizations.styling.segmented_colormap import SegmentedColorMap
+from mescal.visualizations.styling.segmented_colormap import SegmentedColorMapLegend
 from mescal.visualizations.folium_map.kpi_map_visualizer_base import KPIToMapVisualizerBase
 
 
@@ -51,7 +51,7 @@ class AreaKPIMapVisualizer(GeometryKPIMapVisualizer):
     def __init__(
             self,
             study_manager: StudyManager,
-            colormap: SegmentedColorMap,
+            colormap: SegmentedColorMapLegend,
             print_values_on_map: bool = True,
             include_related_kpis_in_tooltip: bool = False,
     ):
@@ -77,7 +77,7 @@ class LineKPIMapVisualizer(GeometryKPIMapVisualizer):
     def __init__(
             self,
             study_manager: StudyManager,
-            colormap: SegmentedColorMap,
+            colormap: SegmentedColorMapLegend,
             widthmap: LineWidthMap | float = 3.0,
             print_values_on_map: bool = True,
             include_related_kpis_in_tooltip: bool = False,
