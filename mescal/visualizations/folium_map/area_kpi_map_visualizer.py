@@ -1,16 +1,19 @@
+from abc import ABC, abstractmethod
+
 import folium
 from tqdm import tqdm
 
-from mescal.kpis import ValueComparisonKPI, KPI, KPICollection
+from mescal.kpis import ValueComparisonKPI, KPI, KPICollection, ArithmeticValueOperationKPI
 from mescal.study_manager import StudyManager
 from mescal.units import Units
 from mescal.utils.logging import get_logger
 from mescal.utils.dict_combinations import dict_combination_iterator
 from mescal.utils.color_utils.segmented_colormap import SegmentedColorMap
+
 logger = get_logger(__name__)
 
 
-class AreaKPIMapVisualizer:
+class KPIToMapVisualizerBase:
     def __init__(
             self,
             study_manager: StudyManager,
@@ -21,7 +24,7 @@ class AreaKPIMapVisualizer:
         self.print_values_on_map = print_values_on_map
         self.include_related_kpis_in_tooltip = include_related_kpis_in_tooltip
 
-    def get_feature_groups(self, kpi_collection: KPICollection, colormap: SegmentedColorMap) -> list[folium.FeatureGroup]:
+    def get_feature_groups(self, kpi_collection: KPICollection) -> list[folium.FeatureGroup]:
         feature_groups = []
         pbar = tqdm(kpi_collection, total=kpi_collection.size, desc=f'{self.__class__.__name__}')
         with pbar:
@@ -31,7 +34,7 @@ class AreaKPIMapVisualizer:
                 # TODO: consistent category_orders
                 for kpi in kpi_group:
                     try:
-                        self._add_kpi_to_feature_group(kpi, fg, colormap)
+                        self._add_kpi_to_feature_group(kpi, fg)
                     except Exception as e:
                         logger.warning(f'Exception while trying to add KPI {kpi.name} to FeatureGroup {group_name}: {e}')
                     pbar.update(1)
@@ -70,65 +73,9 @@ class AreaKPIMapVisualizer:
 
         return ' '.join(components)
 
-    def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup, colormap: SegmentedColorMap):
-        style = self._get_style_kwargs(kpi, colormap)
-        highlight = self._get_highlight_kwargs(kpi, colormap)
-        geojson = self._get_geojson(kpi)
-        folium.GeoJson(
-            geojson,
-            style_function=lambda x, s=dict(style): s,
-            highlight_function=lambda x, h=dict(highlight): h,
-            tooltip=folium.GeoJsonTooltip(fields=['tooltip'], aliases=[''], sticky=True)
-        ).add_to(feature_group)
-
-        if self.print_values_on_map:
-            self._add_kpi_value_print_to_feature_group(kpi, feature_group, style)
-
-    def _add_kpi_value_print_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup, style: dict):
-        icon_text = self._get_icon_text(kpi)
-        surface_color = style['fillColor']
-        icon_loc = self._get_icon_projection_point(kpi)
-        text_color, shadow_color = self._get_contrast_and_shadow_color_for_text_on_surface(surface_color)
-        icon_html = f'''
-                <div style="
-                    position: absolute;
-                    left: 50%;
-                    top: 50%;
-                    transform: translate(-50%, -50%);
-                    text-align: center;
-                    font-size: 8pt;
-                    font-weight: bold;
-                    color: {text_color};
-                    white-space: nowrap;
-                    text-shadow:
-                       -0.05px -0.05px 0 {shadow_color},  
-                        0.05px -0.05px 0 {shadow_color},
-                       -0.05px  0.05px 0 {shadow_color},
-                        0.05px  0.05px 0 {shadow_color};
-                ">
-                    {icon_text}
-                </div>
-            '''
-        folium.Marker(location=icon_loc, icon=folium.DivIcon(html=icon_html), draggable=True).add_to(feature_group)
-
-    def _get_contrast_and_shadow_color_for_text_on_surface(self, surface_color: str) -> tuple[str, str]:
-        if self._is_dark(surface_color):
-            return '#F2F2F2', '#3A3A3A'
-        return '#3A3A3A', '#F2F2F2'
-
-    def _get_style_kwargs(self, kpi: KPI, colormap: SegmentedColorMap) -> dict:
-        return {
-            'fillColor': colormap(kpi.value),
-            'color': 'white',
-            'weight': 1,
-            'fillOpacity': 1
-        }
-
-    def _get_highlight_kwargs(self, kpi: KPI, colormap: SegmentedColorMap) -> dict:
-        highlight = self._get_style_kwargs(kpi, colormap)
-        highlight['weight'] = 3
-        highlight['fillOpacity'] = 0.8
-        return highlight
+    @abstractmethod
+    def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup):
+        pass
 
     def _get_tooltip(self, kpi: KPI) -> str:
         kpi_name = kpi.get_kpi_name_with_dataset_name()
@@ -205,6 +152,87 @@ class AreaKPIMapVisualizer:
                     continue
         return groups
 
+    def _add_kpi_value_print_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup, style: dict):
+        icon_text = self._get_icon_text(kpi)
+        surface_color = style['fillColor']
+        icon_loc = self._get_icon_projection_point(kpi)
+        text_color, shadow_color = self._get_contrast_and_shadow_color_for_text_on_surface(surface_color)
+        icon_html = f'''
+                <div style="
+                    position: absolute;
+                    left: 50%;
+                    top: 50%;
+                    transform: translate(-50%, -50%);
+                    text-align: center;
+                    font-size: 8pt;
+                    font-weight: bold;
+                    color: {text_color};
+                    white-space: nowrap;
+                    text-shadow:
+                       -0.05px -0.05px 0 {shadow_color},  
+                        0.05px -0.05px 0 {shadow_color},
+                       -0.05px  0.05px 0 {shadow_color},
+                        0.05px  0.05px 0 {shadow_color};
+                ">
+                    {icon_text}
+                </div>
+            '''
+        folium.Marker(location=icon_loc, icon=folium.DivIcon(html=icon_html), draggable=True).add_to(feature_group)
+
+    def _get_icon_text(self, kpi: KPI) -> str:
+        icon_text = Units.get_pretty_text_for_quantity(kpi.quantity)
+        return f'{icon_text}'
+
+    def _get_contrast_and_shadow_color_for_text_on_surface(self, surface_color: str) -> tuple[str, str]:
+        if self._is_dark(surface_color):
+            return '#F2F2F2', '#3A3A3A'
+        return '#3A3A3A', '#F2F2F2'
+
+    @staticmethod
+    def _is_dark(color: str) -> bool:
+        r, g, b = [int(color[i:i + 2], 16) for i in (1, 3, 5)]
+        return (0.299 * r + 0.587 * g + 0.114 * b) < 160
+
+
+class AreaKPIMapVisualizer(KPIToMapVisualizerBase):
+    def __init__(
+            self,
+            study_manager: StudyManager,
+            colormap: SegmentedColorMap,
+            print_values_on_map: bool = True,
+            include_related_kpis_in_tooltip: bool = False,
+    ):
+        self.colormap = colormap
+        super().__init__(study_manager, print_values_on_map, include_related_kpis_in_tooltip)
+
+    def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup):
+        style = self._get_style_kwargs(kpi)
+        highlight = self._get_highlight_kwargs(kpi)
+        geojson = self._get_geojson(kpi)
+        folium.GeoJson(
+            geojson,
+            style_function=lambda x, s=dict(style): s,
+            highlight_function=lambda x, h=dict(highlight): h,
+            tooltip=folium.GeoJsonTooltip(fields=['tooltip'], aliases=[''], sticky=True)
+        ).add_to(feature_group)
+
+        if self.print_values_on_map:
+            self._add_kpi_value_print_to_feature_group(kpi, feature_group, style)
+
+    def _get_style_kwargs(self, kpi: KPI) -> dict:
+        return {
+            'fillColor': self.colormap(kpi.value),
+            'color': 'white',
+            'weight': 1,
+            'fillOpacity': 1
+        }
+
+    def _get_highlight_kwargs(self, kpi: KPI) -> dict:
+        highlight = self._get_style_kwargs(kpi)
+        highlight['weight'] = 3
+        highlight['fillOpacity'] = 0.8
+        return highlight
+
     def _get_geojson(self, kpi: KPI) -> dict:
         info = kpi.get_attributed_object_info_from_model()
         tooltip = self._get_tooltip(kpi)
@@ -214,15 +242,6 @@ class AreaKPIMapVisualizer:
             "properties": {"tooltip": tooltip}
         }
 
-    def _get_icon_text(self, kpi: KPI) -> str:
-        icon_text = Units.get_pretty_text_for_quantity(kpi.quantity)
-        return f'{icon_text}'
-
     def _get_icon_projection_point(self, kpi: KPI) -> tuple[float, float]:
         info = kpi.get_attributed_object_info_from_model()
         return info['projection_point'].coords[0][::-1]
-
-    @staticmethod
-    def _is_dark(color: str) -> bool:
-        r, g, b = [int(color[i:i + 2], 16) for i in (1, 3, 5)]
-        return (0.299 * r + 0.587 * g + 0.114 * b) < 160
