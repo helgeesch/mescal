@@ -96,6 +96,6 @@ class LineKPIMapVisualizer(GeometryKPIMapVisualizer):
 
     def _get_highlight_kwargs(self, kpi: KPI) -> dict:
         highlight = self._get_style_kwargs(kpi)
-        highlight['weight'] = highlight['weight'] * 1.5  # Make the line thicker on highlight
+        highlight['weight'] = highlight['weight'] * 1.5
         highlight['opacity'] = 0.8
         return highlight

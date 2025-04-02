@@ -8,7 +8,9 @@ from mescal import StudyManager
 from mescal.kpis import KPICollection, KPI, ValueComparisonKPI, ArithmeticValueOperationKPI
 from mescal.units import Units
 from mescal.utils.dict_combinations import dict_combination_iterator
-from mescal.visualizations.folium_map.kpi_map_visualizer_geometries import logger
+from mescal.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class KPIToMapVisualizerBase:
