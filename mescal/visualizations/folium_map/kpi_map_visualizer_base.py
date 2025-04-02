@@ -2,15 +2,18 @@ from abc import abstractmethod
 
 import folium
 from tqdm import tqdm
+from shapely.geometry.base import BaseGeometry
 
 from mescal import StudyManager
 from mescal.kpis import KPICollection, KPI, ValueComparisonKPI, ArithmeticValueOperationKPI
 from mescal.units import Units
 from mescal.utils.dict_combinations import dict_combination_iterator
-from mescal.visualizations.folium_map.kpi_map_visualizer_areas import logger
+from mescal.visualizations.folium_map.kpi_map_visualizer_geometries import logger
 
 
 class KPIToMapVisualizerBase:
+    PROJECTION_POINT_ATTR = 'projection_point'
+
     def __init__(
             self,
             study_manager: StudyManager,
@@ -179,6 +182,21 @@ class KPIToMapVisualizerBase:
     def _get_icon_text(self, kpi: KPI) -> str:
         icon_text = Units.get_pretty_text_for_quantity(kpi.quantity)
         return f'{icon_text}'
+
+    def _get_icon_projection_point(self, kpi: KPI) -> tuple[float, float]:
+        info = kpi.get_attributed_object_info_from_model()
+        if self.PROJECTION_POINT_ATTR in info:
+            return info['projection_point'].coords[0][::-1]
+        elif 'geometry' in info:
+            if isinstance(info.geometry, BaseGeometry):
+                return info.geometry.representative_point()
+            elif hasattr(info['geometry'], 'interpolate'):
+                midpoint = info['geometry'].interpolate(0.5, normalized=True)
+                return midpoint.y, midpoint.x
+            elif hasattr(info.geometry, 'centroid'):
+                centroid = info['geometry'].centroid
+                return centroid.y, centroid.x
+        raise AttributeError(f'No geo coordinates for a projection point found for {kpi.name}.')
 
     def _get_contrast_and_shadow_color_for_text_on_surface(self, surface_color: str) -> tuple[str, str]:
         if self._is_dark(surface_color):
