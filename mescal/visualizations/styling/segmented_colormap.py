@@ -7,7 +7,7 @@ import folium
 from mescal.utils.color_utils.conversion import to_hex
 
 
-class SegmentedColorMapBase:
+class SegmentedColorMap:
     """Base class handling color scale logic without visualization."""
 
     def __init__(
@@ -87,43 +87,44 @@ class SegmentedColorMapBase:
         """
         if num_reference_points_per_segment < 2:
             raise ValueError(f'num_reference_points_per_segment must be >= 2.')
-        epsilon = 1e-9  # Adjustment for segment boundaries
         colorscale = []
         total_range = self.max_value - self.min_value
 
         for i, ((seg_start, seg_end), _) in enumerate(self.sorted_segments):
-            # Calculate normalized positions
-            norm_start = (seg_start - self.min_value) / total_range
-            norm_end = (seg_end - self.min_value) / total_range
+            norm_start, norm_end = self._calc_normalized_positions(seg_end, seg_start, total_range)
 
-            # Adjust end for all but last segment
             if i < len(self.sorted_segments) - 1:
-                norm_end -= epsilon
+                norm_end = self._adjust_end_for_all_but_last_segment(norm_end)
 
-            # Generate positions within this segment
             positions = np.linspace(norm_start, norm_end, num_reference_points_per_segment)
 
-            # Get colors for these positions
             for pos in positions:
                 value = self.min_value + pos * total_range
-                colorscale.append((
-                    round(pos, 10),  # Mitigate floating-point errors
-                    self(value)
-                ))
+                colorscale.append((round(pos, 10), self(value)))
 
-        # Add final endpoint explicitly
         final_pos = (self.max_value - self.min_value) / total_range
         colorscale.append((final_pos, self(self.max_value)))
 
-        # Deduplicate while preserving order
+        return self._deduplicate_while_preserving_order(colorscale)
+
+    def _deduplicate_while_preserving_order(self, colorscale):
         seen = set()
         return [
             (pos, color[:-2]) for pos, color in sorted(colorscale, key=lambda x: x[0])
             if not (pos in seen or seen.add(pos))
         ]
 
+    def _adjust_end_for_all_but_last_segment(self, norm_end):
+        epsilon = 1e-9
+        return norm_end - epsilon
 
-class SegmentedColorMap(SegmentedColorMapBase, MacroElement):
+    def _calc_normalized_positions(self, seg_end, seg_start, total_range):
+        norm_start = (seg_start - self.min_value) / total_range
+        norm_end = (seg_end - self.min_value) / total_range
+        return norm_start, norm_end
+
+
+class SegmentedColorMapLegend(SegmentedColorMap, MacroElement):
     _template = Template("""
     {% macro header(this, kwargs) %}
         <style>
@@ -182,7 +183,7 @@ class SegmentedColorMap(SegmentedColorMapBase, MacroElement):
             position: Optional[Dict[str, int | float | str]] = None,
             n_ticks_per_segment: int = 2
     ):
-        SegmentedColorMapBase.__init__(self, segments, na_color)
+        SegmentedColorMap.__init__(self, segments, na_color)
         MacroElement.__init__(self)
         self._name = "SegmentedColorMap"
 
@@ -296,7 +297,7 @@ if __name__ == '__main__':
         (10, 20): ['#000000']
     }
 
-    scm = SegmentedColorMap(
+    scm = SegmentedColorMapLegend(
         segments=segments,
         title="Elevation Scale (meters)",
         background_color="#f0f0f0",
@@ -310,7 +311,7 @@ if __name__ == '__main__':
         n_ticks_per_segment=5,
     )
 
-    scm_2 = SegmentedColorMap(
+    scm_2 = SegmentedColorMapLegend(
         segments_2,
         title='BingBong',
         position=dict(bottom=50, left=650),
