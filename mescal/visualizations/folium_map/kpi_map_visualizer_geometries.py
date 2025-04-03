@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import folium
+from shapely.geometry import LineString, Point
 
 from mescal.kpis import KPI
 from mescal.study_manager import StudyManager
@@ -8,7 +9,17 @@ from mescal.visualizations.styling.segmented_line_width_map import SegmentedLine
 from mescal.visualizations.folium_map.kpi_map_visualizer_base import KPIToMapVisualizerBase
 
 
-class GeometryKPIMapVisualizer(KPIToMapVisualizerBase, ABC):
+class AreaKPIMapVisualizer(KPIToMapVisualizerBase):
+    def __init__(
+            self,
+            study_manager: StudyManager,
+            colormap: SegmentedColorMapLegend,
+            print_values_on_map: bool = True,
+            include_related_kpis_in_tooltip: bool = False,
+    ):
+        self.colormap = colormap
+        super().__init__(study_manager, print_values_on_map, include_related_kpis_in_tooltip)
+
     def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup):
         style = self._get_style_kwargs(kpi)
         highlight = self._get_highlight_kwargs(kpi)
@@ -21,7 +32,7 @@ class GeometryKPIMapVisualizer(KPIToMapVisualizerBase, ABC):
         ).add_to(feature_group)
 
         if self.print_values_on_map:
-            self._add_kpi_value_print_to_feature_group(kpi, feature_group, style)
+            self._add_kpi_value_print_to_feature_group(kpi, feature_group, style['color'])
 
     def _get_geojson(self, kpi: KPI) -> dict:
         info = kpi.get_attributed_object_info_from_model()
@@ -31,33 +42,6 @@ class GeometryKPIMapVisualizer(KPIToMapVisualizerBase, ABC):
             "geometry": info.geometry.__geo_interface__,
             "properties": {"tooltip": tooltip}
         }
-
-    @abstractmethod
-    def _get_style_kwargs(self, kpi: KPI) -> dict:
-        return {
-            'color': '#AABBCC',
-            'weight': 1.0,
-            'opacity': 1.0
-        }
-
-    @abstractmethod
-    def _get_highlight_kwargs(self, kpi: KPI) -> dict:
-        highlight = self._get_style_kwargs(kpi)
-        highlight['weight'] = highlight['weight'] * 1.5  # Make the line thicker on highlight
-        highlight['opacity'] = 0.8
-        return highlight
-
-
-class AreaKPIMapVisualizer(GeometryKPIMapVisualizer):
-    def __init__(
-            self,
-            study_manager: StudyManager,
-            colormap: SegmentedColorMapLegend,
-            print_values_on_map: bool = True,
-            include_related_kpis_in_tooltip: bool = False,
-    ):
-        self.colormap = colormap
-        super().__init__(study_manager, print_values_on_map, include_related_kpis_in_tooltip)
 
     def _get_style_kwargs(self, kpi: KPI) -> dict:
         return {
@@ -74,7 +58,7 @@ class AreaKPIMapVisualizer(GeometryKPIMapVisualizer):
         return highlight
 
 
-class LineKPIMapVisualizer(GeometryKPIMapVisualizer):
+class LineKPIMapVisualizer(KPIToMapVisualizerBase):
     def __init__(
             self,
             study_manager: StudyManager,
@@ -87,15 +71,21 @@ class LineKPIMapVisualizer(GeometryKPIMapVisualizer):
         self.colormap = colormap
         self.widthmap = widthmap if isinstance(widthmap, SegmentedLineWidthMapLegend) else lambda x: widthmap
 
-    def _get_style_kwargs(self, kpi: KPI) -> dict:
-        return {
-            'color': self.colormap(kpi.value),
-            'weight': self.widthmap(kpi.value),
-            'opacity': 1.0
-        }
+    def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup):
+        info = kpi.get_attributed_object_info_from_model()
+        if isinstance(info.geometry, LineString):
+            coordinates = [(lat, lon) for lon, lat in info.geometry.coords]
+        elif isinstance(info.geometry, Point):
+            coordinates = [tuple(info.geometry.coords[::-1])]
+        else:
+            raise NotImplementedError(f'Type {type(info.geometry)} not Implemented.')
+        folium.PolyLine(
+            coordinates,
+            color=self.colormap(kpi.value),
+            weight=5,
+            opacity=0.7,
+            tooltip=self._get_tooltip(kpi),
+        ).add_to(feature_group)
 
-    def _get_highlight_kwargs(self, kpi: KPI) -> dict:
-        highlight = self._get_style_kwargs(kpi)
-        highlight['weight'] = highlight['weight'] * 1.5
-        highlight['opacity'] = 0.8
-        return highlight
+        if self.print_values_on_map:
+            self._add_kpi_value_print_to_feature_group(kpi, feature_group)

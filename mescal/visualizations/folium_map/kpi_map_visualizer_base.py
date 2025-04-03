@@ -2,7 +2,7 @@ from abc import abstractmethod
 
 import folium
 from tqdm import tqdm
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import Polygon, MultiPolygon
 
 from mescal import StudyManager
 from mescal.kpis import KPICollection, KPI, ValueComparisonKPI, ArithmeticValueOperationKPI
@@ -154,9 +154,9 @@ class KPIToMapVisualizerBase:
                     continue
         return groups
 
-    def _add_kpi_value_print_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup, style: dict):
+    def _add_kpi_value_print_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup, surface_color: str = None):
         icon_text = self._get_icon_text(kpi)
-        surface_color = style['fillColor']
+        surface_color = surface_color or '#000000'
         icon_loc = self._get_icon_projection_point(kpi)
         text_color, shadow_color = self._get_contrast_and_shadow_color_for_text_on_surface(surface_color)
         icon_html = f'''
@@ -190,8 +190,9 @@ class KPIToMapVisualizerBase:
         if self.PROJECTION_POINT_ATTR in info:
             return info['projection_point'].coords[0][::-1]
         elif 'geometry' in info:
-            if isinstance(info.geometry, BaseGeometry):
-                return info.geometry.representative_point()
+            if isinstance(info.geometry, (Polygon, MultiPolygon)):
+                point = info.geometry.representative_point()
+                return point.y, point.x
             elif hasattr(info['geometry'], 'interpolate'):
                 midpoint = info['geometry'].interpolate(0.5, normalized=True)
                 return midpoint.y, midpoint.x
