@@ -6,19 +6,27 @@ from mescal.kpis import KPI
 from mescal.study_manager import StudyManager
 from mescal.visualizations.styling.segmented_colormap import SegmentedColorMapLegend
 from mescal.visualizations.styling.segmented_line_width_map import SegmentedLineWidthMapLegend
+from mescal.visualizations.styling.segmented_opacity_map import SegmentedOpacityMapLegend
 from mescal.visualizations.folium_map.kpi_map_visualizer_base import KPIToMapVisualizerBase
 
 
-class AreaKPIMapVisualizer(KPIToMapVisualizerBase):
+class GeometryKPIMapVisualizer(KPIToMapVisualizerBase, ABC):
     def __init__(
             self,
             study_manager: StudyManager,
-            colormap: SegmentedColorMapLegend,
+            colormap: SegmentedColorMapLegend | str = '#D9D9D9',
+            widthmap: SegmentedLineWidthMapLegend | float = 3.0,
+            opacitymap: SegmentedOpacityMapLegend | float = 0.8,
             print_values_on_map: bool = True,
             include_related_kpis_in_tooltip: bool = False,
     ):
-        self.colormap = colormap
         super().__init__(study_manager, print_values_on_map, include_related_kpis_in_tooltip)
+        self.colormap = colormap if isinstance(colormap, SegmentedColorMapLegend) else lambda x: colormap
+        self.widthmap = widthmap if isinstance(widthmap, SegmentedLineWidthMapLegend) else lambda x: widthmap
+        self.opacitymap = opacitymap if isinstance(opacitymap, SegmentedOpacityMapLegend) else lambda x: opacitymap
+
+
+class AreaKPIMapVisualizer(GeometryKPIMapVisualizer):
 
     def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup):
         style = self._get_style_kwargs(kpi)
@@ -47,30 +55,18 @@ class AreaKPIMapVisualizer(KPIToMapVisualizerBase):
         return {
             'fillColor': self.colormap(kpi.value),
             'color': 'white',
-            'weight': 1,
-            'fillOpacity': 1
+            'weight': self.widthmap(kpi.value),
+            'fillOpacity': self.opacitymap(kpi.value)
         }
 
     def _get_highlight_kwargs(self, kpi: KPI) -> dict:
         highlight = self._get_style_kwargs(kpi)
-        highlight['weight'] = 3
-        highlight['fillOpacity'] = 0.8
+        highlight['weight'] = self.widthmap(kpi.value) * 1.5
+        highlight['fillOpacity'] = min([self.opacitymap(kpi.value) * 1.5, 1])
         return highlight
 
 
-class LineKPIMapVisualizer(KPIToMapVisualizerBase):
-    def __init__(
-            self,
-            study_manager: StudyManager,
-            colormap: SegmentedColorMapLegend,
-            widthmap: SegmentedLineWidthMapLegend | float = 3.0,
-            print_values_on_map: bool = True,
-            include_related_kpis_in_tooltip: bool = False,
-    ):
-        super().__init__(study_manager, print_values_on_map, include_related_kpis_in_tooltip)
-        self.colormap = colormap
-        self.widthmap = widthmap if isinstance(widthmap, SegmentedLineWidthMapLegend) else lambda x: widthmap
-
+class LineKPIMapVisualizer(GeometryKPIMapVisualizer):
     def _add_kpi_to_feature_group(self, kpi: KPI, feature_group: folium.FeatureGroup):
         info = kpi.get_attributed_object_info_from_model()
         if isinstance(info.geometry, LineString):
@@ -83,7 +79,7 @@ class LineKPIMapVisualizer(KPIToMapVisualizerBase):
             coordinates,
             color=self.colormap(kpi.value),
             weight=self.widthmap(kpi.value),
-            opacity=0.7,
+            opacity=self.opacitymap,
             tooltip=self._get_tooltip(kpi),
         ).add_to(feature_group)
 
