@@ -52,6 +52,7 @@ class DatasetCollection(
         )
         self.datasets: list[DatasetType] = datasets if datasets else []
 
+    @property
     def dataset_iterator(self) -> Iterator[DatasetType]:
         for ds in self.datasets:
             yield ds
