@@ -145,7 +145,10 @@ class KPI(ABC):
 
     def get_attributed_object_info_from_model(self) -> pd.Series:
         model_flag = self.get_attributed_model_flag()
-        model_df = self._dataset.fetch(model_flag)
+        if isinstance(self._dataset, DatasetComparison):
+            model_df = self._dataset.fetch_merged(model_flag)
+        else:
+            model_df = self._dataset.fetch(model_flag)
         object_name = self.get_attributed_object_name()
         if object_name in model_df.index:
             return model_df.loc[object_name]
