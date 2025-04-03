@@ -1,0 +1,2 @@
+from mescal.visualizations.styling.segmented_colormap import SegmentedColorMap, SegmentedColorMapLegend
+from mescal.visualizations.styling.segmented_line_width_map import SegmentedLineWidthMap, SegmentedLineWidthMapLegend
