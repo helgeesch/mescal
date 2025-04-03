@@ -53,6 +53,34 @@ class FlagAggKPI(Generic[DatasetType], KPI):
 
         super().__init__(dataset=dataset)
 
+    @property
+    def flag(self) -> FlagType:
+        return self._flag
+
+    @property
+    def aggregation(self) -> Aggregation:
+        return self._aggregation
+
+    @property
+    def column_subset(self) -> Hashable | list[Hashable]:
+        return self._column_subset
+
+    @property
+    def model_query(self) -> str:
+        return self._model_query
+
+    @property
+    def kpi_name_prefix(self) -> str:
+        return self._kpi_name_prefix
+
+    @property
+    def kpi_name_suffix(self) -> str:
+        return self._kpi_name_suffix
+
+    @property
+    def kpi_name(self) -> str:
+        return self._kpi_name
+
     def _get_kpi_attributes(self) -> KPIAttributes:
         atts = super()._get_kpi_attributes()
         atts.flag = self._flag

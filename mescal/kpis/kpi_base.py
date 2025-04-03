@@ -92,6 +92,10 @@ class KPI(ABC):
         pass
 
     @property
+    def dataset(self) -> DatasetType:
+        return self._dataset
+
+    @property
     def attributes(self) -> KPIAttributes:
         if self._attributes is None:
             self._attributes = self._get_kpi_attributes()
