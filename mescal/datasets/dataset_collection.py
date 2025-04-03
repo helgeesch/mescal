@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, Iterable, TYPE_CHECKING
+from typing import Generic, Iterable, TYPE_CHECKING, Iterator
 from abc import ABC, abstractmethod
 
 import pandas as pd
@@ -51,6 +51,10 @@ class DatasetCollection(
             config=config,
         )
         self.datasets: list[DatasetType] = datasets if datasets else []
+
+    def dataset_iterator(self) -> Iterator[DatasetType]:
+        for ds in self.datasets:
+            yield ds
 
     @property
     def flag_index(self) -> FlagIndex:
