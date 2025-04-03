@@ -152,6 +152,24 @@ class DatasetCollection(
     def get_child_dataset_type(cls) -> type[DatasetType]:
         return Dataset
 
+    def fetch_merged(
+            self,
+            flag: FlagType,
+            config: dict | DatasetConfigType = None,
+            keep_first: bool = True,
+            **kwargs
+    ) -> pd.Series | pd.DataFrame:
+        """Fetch method that merges dataframes from all child datasets, similar to DatasetMergeCollection."""
+        temp_merge_collection = self.get_merged_dataset_collection(keep_first)
+        return temp_merge_collection.fetch(flag, config, **kwargs)
+
+    def get_merged_dataset_collection(self, keep_first: bool = True) -> 'DatasetMergeCollection':
+        return DatasetMergeCollection(
+            datasets=self.datasets,
+            name=f"{self.name} merged",
+            keep_first=keep_first
+        )
+
 
 class DatasetLinkCollection(
     Generic[DatasetType, DatasetConfigType, FlagType, FlagIndexType],
@@ -295,24 +313,6 @@ class DatasetConcatCollection(
             axis=1,
             names=[self.concat_level_name]
         ).rename_axis('attribute').T
-
-    def fetch_merged(
-            self,
-            flag: FlagType,
-            config: dict | DatasetConfigType = None,
-            keep_first: bool = True,
-            **kwargs
-    ) -> pd.Series | pd.DataFrame:
-        """Fetch method that merges dataframes from all child datasets, similar to DatasetMergeCollection."""
-        temp_merge_collection = self.get_merged_dataset_collection(keep_first)
-        return temp_merge_collection.fetch(flag, config, **kwargs)
-
-    def get_merged_dataset_collection(self, keep_first: bool = True) -> 'DatasetMergeCollection':
-        return DatasetMergeCollection(
-            datasets=self.datasets,
-            name=f"{self.name} merged",
-            keep_first=keep_first
-        )
 
     def _fetch(
             self,
