@@ -69,7 +69,7 @@ class DatasetComparison(
             config: dict | DatasetConfigType = None,
             comparison_type: ComparisonTypeEnum = ComparisonTypeEnum.DELTA,
             replace_unchanged_values_by_nan: bool = False,
-            fill_value: float | int | None = None,
+            fill_value: float | int | None = 0,
             **kwargs
     ) -> pd.Series | pd.DataFrame:
         return super().fetch(
@@ -87,7 +87,7 @@ class DatasetComparison(
             effective_config: DatasetConfigType,
             comparison_type: ComparisonTypeEnum = ComparisonTypeEnum.DELTA,
             replace_unchanged_values_by_nan: bool = False,
-            fill_value: float | int | None = None,
+            fill_value: float | int | None = 0,
             **kwargs
     ) -> pd.Series | pd.DataFrame:
         df_var = self.variation_dataset.fetch(flag, effective_config, **kwargs)
