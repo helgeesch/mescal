@@ -82,7 +82,7 @@ class LineKPIMapVisualizer(KPIToMapVisualizerBase):
         folium.PolyLine(
             coordinates,
             color=self.colormap(kpi.value),
-            weight=5,
+            weight=self.widthmap(kpi.value),
             opacity=0.7,
             tooltip=self._get_tooltip(kpi),
         ).add_to(feature_group)
