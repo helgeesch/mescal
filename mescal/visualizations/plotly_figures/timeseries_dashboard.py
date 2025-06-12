@@ -451,7 +451,8 @@ class TimeSeriesDashboardGenerator:
             if hasattr(self.config, key):
                 setattr(self.config, key, value)
 
-        DataProcessor.validate_input_data_and_config(data, self.config)
+        if not kwargs.get('_skip_validation', False):
+            DataProcessor.validate_input_data_and_config(data, self.config)
         data = DataProcessor.prepare_dataframe_for_facet(data, self.config)
         data = DataProcessor.ensure_df_has_two_column_levels(data, self.config)
         DataProcessor.update_facet_config(data, self.config)
@@ -539,7 +540,7 @@ class TimeSeriesDashboardGenerator:
             ]
             data_chunk = data[cols_in_chunk]
 
-            fig = self.get_figure(data_chunk, **chunk_kwargs)
+            fig = self.get_figure(data_chunk, **chunk_kwargs, _skip_validation=True)
             figures.append(fig)
 
         self.config = original_config
