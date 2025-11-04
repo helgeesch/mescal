@@ -55,9 +55,11 @@ class KPICollection:
         """
         filtered = []
         for kpi in self._kpis:
+            primitive = kpi.to_dict(primitive_values=True)
+            non_primitive = kpi.to_dict(primitive_values=False)
             match = all(
-                getattr(kpi.attributes, attr, None) == value
-                or kpi.attributes.dataset_attributes.get(attr) == value
+                primitive.get(attr, None) == value
+                or non_primitive.get(attr, None) == value
                 for attr, value in attribute_filters.items()
             )
             if match:
