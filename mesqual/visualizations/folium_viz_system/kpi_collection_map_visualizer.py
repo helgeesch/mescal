@@ -1,16 +1,18 @@
-from typing import TYPE_CHECKING, List, Literal
+from typing import TYPE_CHECKING, List, Literal, Union
 
 import folium
 
 from mesqual.kpis import KPICollection, KPI
 from mesqual.visualizations.folium_viz_system.base_viz_system import FoliumObjectGenerator, PropertyMapper
 from mesqual.visualizations.folium_viz_system.visualizable_data_item import KPIDataItem, VisualizableDataItem
+from mesqual.units import QuantityToTextConverter
 
 if TYPE_CHECKING:
     from mesqual.study_manager import StudyManager
 
 
 SHOW_OPTIONS = Literal['first', 'last', 'none']
+VALUE_FORMATTING_OPTIONS = Union[Literal['per_feature_group', 'per_collection'], QuantityToTextConverter]
 
 
 class KPIGroupingManager:
@@ -301,11 +303,13 @@ class KPICollectionMapVisualizer:
             study_manager: 'StudyManager' = None,
             include_related_kpis_in_tooltip: bool = False,
             kpi_grouping_manager: KPIGroupingManager = None,
+            value_formatting: VALUE_FORMATTING_OPTIONS = 'per_feature_group',
             **kwargs
     ):
         self.generators: List[FoliumObjectGenerator] = generators if isinstance(generators, list) else [generators]
         self.study_manager = study_manager
         self.include_related_kpis_in_tooltip = include_related_kpis_in_tooltip
+        self.value_formatting = value_formatting
 
         self.grouping_manager = kpi_grouping_manager or KPIGroupingManager()
 
@@ -327,6 +331,64 @@ class KPICollectionMapVisualizer:
         for fg in fgs:
             folium_map.add_child(fg)
         return fgs
+
+    def _create_converter_for_feature_group(self, kpi_group: KPICollection) -> QuantityToTextConverter:
+        """Create converter configured for a specific feature group."""
+        quantities = [kpi.quantity for kpi in kpi_group]
+        return QuantityToTextConverter.from_quantities(
+            quantities,
+            thousands_separator=' '
+        )
+
+    def _create_converter_per_collection(self, kpi_collection: KPICollection) -> dict[str, QuantityToTextConverter]:
+        """Create converters per base unit for the entire collection."""
+        from mesqual.units import Units
+
+        # Group KPIs by base unit
+        kpis_by_base_unit = {}
+        for kpi in kpi_collection:
+            base_unit = Units.get_base_unit_for_unit(kpi.quantity.units)
+            base_unit_str = str(base_unit)
+            if base_unit_str not in kpis_by_base_unit:
+                kpis_by_base_unit[base_unit_str] = []
+            kpis_by_base_unit[base_unit_str].append(kpi)
+
+        # Create converter for each base unit group
+        converters = {}
+        for base_unit_str, kpis in kpis_by_base_unit.items():
+            quantities = [kpi.quantity for kpi in kpis]
+            converters[base_unit_str] = QuantityToTextConverter.from_quantities(
+                quantities,
+                thousands_separator=' '
+            )
+
+        return converters
+
+    def _get_converter_for_kpi(
+        self,
+        kpi: KPI,
+        kpi_group: KPICollection = None,
+        collection_converters: dict[str, QuantityToTextConverter] = None
+    ) -> QuantityToTextConverter:
+        """Get the appropriate converter for a KPI based on value_formatting strategy."""
+        from mesqual.units import Units
+
+        # If explicit converter provided, use it
+        if isinstance(self.value_formatting, QuantityToTextConverter):
+            return self.value_formatting
+
+        # Per feature group strategy
+        if self.value_formatting == 'per_feature_group' and kpi_group is not None:
+            return self._create_converter_for_feature_group(kpi_group)
+
+        # Per collection strategy
+        if self.value_formatting == 'per_collection' and collection_converters is not None:
+            base_unit = Units.get_base_unit_for_unit(kpi.quantity.units)
+            base_unit_str = str(base_unit)
+            return collection_converters.get(base_unit_str)
+
+        # Fallback: create converter for single KPI
+        return QuantityToTextConverter.from_quantities([kpi.quantity], thousands_separator=' ')
 
     def get_feature_groups(
             self,
@@ -355,10 +417,19 @@ class KPICollectionMapVisualizer:
         logger = get_logger(__name__)
         feature_groups = []
 
+        # Pre-compute converters for per_collection strategy
+        collection_converters = None
+        if self.value_formatting == 'per_collection':
+            collection_converters = self._create_converter_per_collection(kpi_collection)
+
         failed = []
         pbar = tqdm(kpi_collection, total=kpi_collection.size, desc=f'{self.__class__.__name__}')
         with pbar:
             kpi_groups = self.grouping_manager.get_kpi_groups(kpi_collection)
+
+            # Cache converter per feature group for efficiency
+            group_converters = {}
+
             for kpi_group in kpi_groups:
                 group_name = self.grouping_manager.get_feature_group_name(kpi_group)
 
@@ -371,18 +442,42 @@ class KPICollectionMapVisualizer:
 
                 fg = folium.FeatureGroup(name=group_name, overlay=overlay, show=show_fg)
 
+                # Get/create converter for this group
+                if self.value_formatting == 'per_feature_group':
+                    if group_name not in group_converters:
+                        group_converters[group_name] = self._create_converter_for_feature_group(kpi_group)
+                    group_converter = group_converters[group_name]
+                else:
+                    group_converter = None
+
                 for kpi in kpi_group:
+                    # Get appropriate converter for this KPI
+                    converter = self._get_converter_for_kpi(
+                        kpi,
+                        kpi_group=kpi_group,
+                        collection_converters=collection_converters
+                    )
+
                     data_item = KPIDataItem(kpi, kpi_collection, study_manager=self.study_manager, **self.kwargs)
                     for generator in self.generators:
+                        # Store original value_converter
+                        original_converter = generator.feature_resolver.value_converter
+
+                        # Temporarily set converter for this KPI
+                        generator.feature_resolver.value_converter = converter
+
                         if self.include_related_kpis_in_tooltip:
                             _tmp = generator.feature_resolver.property_mappers.get('tooltip', None)
-                            generator.feature_resolver.property_mappers['tooltip'] = self._create_enhanced_tooltip_generator()
+                            generator.feature_resolver.property_mappers['tooltip'] = self._create_enhanced_tooltip_generator(converter)
                         try:
                             generator.generate(data_item, fg)
                         except Exception as e:
                             failed.append((kpi.name, group_name, e))
 
                         finally:
+                            # Restore original converter
+                            generator.feature_resolver.value_converter = original_converter
+
                             if self.include_related_kpis_in_tooltip:
                                 if _tmp is not None:
                                     generator.feature_resolver.property_mappers['tooltip'] = _tmp
@@ -397,8 +492,12 @@ class KPICollectionMapVisualizer:
             )
         return feature_groups
 
-    def _create_enhanced_tooltip_generator(self) -> PropertyMapper:
-        """Create tooltip generator that includes related KPIs."""
+    def _create_enhanced_tooltip_generator(self, converter: QuantityToTextConverter = None) -> PropertyMapper:
+        """Create tooltip generator that includes related KPIs.
+
+        Args:
+            converter: Optional QuantityToTextConverter for formatting KPI values
+        """
 
         def generate_tooltip(data_item: KPIDataItem) -> str:
 
@@ -406,8 +505,13 @@ class KPICollectionMapVisualizer:
             kpi_name = kpi.get_kpi_name_with_dataset_name()
 
             from mesqual.units import Units
-            kpi_quantity = Units.get_quantity_in_pretty_unit(kpi.quantity)
-            kpi_text = Units.get_pretty_text_for_quantity(kpi_quantity, thousands_separator=' ')
+
+            # Use converter if provided, otherwise use default formatting
+            if converter is not None:
+                kpi_text = converter.convert(kpi.quantity)
+            else:
+                kpi_quantity = Units.get_quantity_in_pretty_unit(kpi.quantity)
+                kpi_text = Units.get_pretty_text_for_quantity(kpi_quantity, thousands_separator=' ')
 
             html = '<table style="border-collapse: collapse;">\n'
             html += f'  <tr><td style="padding: 4px 8px;"><strong>{kpi_name}</strong></td>' \
@@ -426,11 +530,16 @@ class KPICollectionMapVisualizer:
                         html += f'  <tr><th colspan="2" style="text-align: left; padding: 8px;">{name}</th></tr>\n'
                         for related_kpi in group:
                             related_kpi_name = related_kpi.get_kpi_name_with_dataset_name()
-                            related_kpi_quantity = Units.get_quantity_in_pretty_unit(related_kpi.quantity)
-                            related_kpi_value_text = Units.get_pretty_text_for_quantity(
-                                related_kpi_quantity,
-                                thousands_separator=' ',
-                            )
+
+                            # Use converter for related KPIs too if provided
+                            if converter is not None:
+                                related_kpi_value_text = converter.convert(related_kpi.quantity)
+                            else:
+                                related_kpi_quantity = Units.get_quantity_in_pretty_unit(related_kpi.quantity)
+                                related_kpi_value_text = Units.get_pretty_text_for_quantity(
+                                    related_kpi_quantity,
+                                    thousands_separator=' ',
+                                )
                             html += f'  <tr><td style="padding: 4px 8px;">{related_kpi_name}</td>' \
                                     f'<td style="text-align: right; padding: 4px 8px;">{related_kpi_value_text}</td></tr>\n'
 
