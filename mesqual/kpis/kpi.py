@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 import pandas as pd
 
+from mesqual.datasets import DatasetComparison
 from mesqual.flag import FlagTypeProtocol
 from mesqual.units import Units
 from mesqual.kpis.attributes import KPIAttributes
@@ -103,13 +104,18 @@ class KPI:
         """
         if self._object_info is None:
             if self.attributes.model_flag and self.attributes.object_name:
-                try:
-                    model_df = self.dataset.fetch(self.attributes.model_flag)
-                    self._object_info = model_df.loc[self.attributes.object_name]
-                except:
+                if isinstance(self.dataset, DatasetComparison):
+                    sets = [self.dataset.variation_dataset, self.dataset.reference_dataset]
+                else:
+                    sets = [self.dataset]
+                for ds in sets:
+                    if ds.flag_is_accepted(self.attributes.model_flag):
+                        model_df = ds.fetch(self.attributes.model_flag)
+                        if self.attributes.object_name in model_df.index:
+                            self._object_info = model_df.loc[self.attributes.object_name]
+                            break
+                if self._object_info is None:
                     self._object_info = pd.Series()
-            else:
-                self._object_info = pd.Series()
         return self._object_info
 
     def get_kpi_name_with_dataset_name(self) -> str:
@@ -134,12 +140,10 @@ class KPI:
         Returns:
             Dictionary with all KPI data
         """
-        if not primitive_values:
-            raise NotImplementedError  # TODO
         return {
             'name': self.name,
             'value': self.value,
-            'quantity': str(self.quantity),
+            'quantity': str(self.quantity) if primitive_values else self.quantity,
             **self.attributes.as_dict(primitive_values=primitive_values),
         }
 

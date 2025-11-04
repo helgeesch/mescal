@@ -60,10 +60,12 @@ class FlagAggKPIDefinition(KPIDefinition):
 
         df = dataset.fetch(self.flag)
 
+        model_df = dataset.fetch(model_flag) if dataset.flag_is_accepted(model_flag) else None
         if self.objects == 'auto':
             objects = df.columns.tolist()
         elif isinstance(self.objects, ModelPropertyFilter):
-            model_df = dataset.fetch(model_flag)
+            if model_df is None:
+                raise Exception(f'No Model DF found for model_flag "{model_flag}" in variable_flag "{self.flag}"')
             filtered_model_df_objects = self.objects.apply_filter(model_df)
             objects = [o for o in df.columns if o in filtered_model_df_objects]
         else:
@@ -71,7 +73,7 @@ class FlagAggKPIDefinition(KPIDefinition):
 
         aggregated = self.aggregation(df)  # Returns Series with one value per column
 
-        dataset_type = str(type(dataset))
+        dataset_type = type(dataset)
 
         unit = dataset.flag_index.get_unit(self.flag)
         if self.aggregation.unit is not None:
@@ -109,6 +111,8 @@ class FlagAggKPIDefinition(KPIDefinition):
                 attributes=attributes,
                 dataset=dataset
             )
+            if (model_df is not None) and (obj in model_df.index):
+                kpi._object_info = model_df.loc[obj]
             kpis.append(kpi)
 
         return kpis
