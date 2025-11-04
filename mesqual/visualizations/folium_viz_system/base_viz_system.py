@@ -207,8 +207,8 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         )
         for k, mapper_factory in _defaults_if_true.items():
             if property_mappers.get(k, None) is True:
-                # Pass converter to text_print_generator
-                if k == 'text_print_content':
+                # Pass converter to tooltip and text_print_generator
+                if k in ['tooltip', 'text_print_content']:
                     property_mappers[k] = mapper_factory(converter=value_converter)
                 else:
                     property_mappers[k] = mapper_factory()
@@ -239,16 +239,27 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         return fallback
 
     @staticmethod
-    def _default_tooltip_generator() -> PropertyMapper:
+    def _default_tooltip_generator(converter: 'QuantityToTextConverter' = None) -> PropertyMapper:
         """
         Create default tooltip generator showing data item information.
+
+        Args:
+            converter: Optional QuantityToTextConverter for custom KPI value formatting
 
         Returns:
             PropertyMapper that generates HTML table tooltips with data item attributes
         """
 
         def get_tooltip(data_item: VisualizableDataItem) -> str:
+            from mesqual.visualizations.folium_viz_system.visualizable_data_item import KPIDataItem
+
             tooltip_data = data_item.get_tooltip_data()
+
+            # For KPI data items, format the value using converter if provided
+            if isinstance(data_item, KPIDataItem) and converter is not None:
+                from mesqual.units import Units
+                formatted_value = converter.convert(data_item.kpi.quantity)
+                tooltip_data['Value'] = formatted_value
 
             html = '<table style="border-collapse: collapse;">\n'
             for key, value in tooltip_data.items():
