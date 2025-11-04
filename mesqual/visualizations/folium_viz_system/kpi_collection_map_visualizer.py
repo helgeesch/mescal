@@ -355,6 +355,7 @@ class KPICollectionMapVisualizer:
         logger = get_logger(__name__)
         feature_groups = []
 
+        failed = []
         pbar = tqdm(kpi_collection, total=kpi_collection.size, desc=f'{self.__class__.__name__}')
         with pbar:
             kpi_groups = self.grouping_manager.get_kpi_groups(kpi_collection)
@@ -379,9 +380,8 @@ class KPICollectionMapVisualizer:
                         try:
                             generator.generate(data_item, fg)
                         except Exception as e:
-                            logger.warning(
-                                f'Exception while trying to add KPI {kpi.name} to FeatureGroup {group_name}: {e}'
-                            )
+                            failed.append((kpi.name, group_name, e))
+
                         finally:
                             if self.include_related_kpis_in_tooltip:
                                 if _tmp is not None:
@@ -391,7 +391,10 @@ class KPICollectionMapVisualizer:
                     pbar.update(1)
 
                 feature_groups.append(fg)
-
+        if failed:
+            logger.warning(
+                f'Exception while trying to add {len(failed)} KPIs: {failed[:3]}'
+            )
         return feature_groups
 
     def _create_enhanced_tooltip_generator(self) -> PropertyMapper:
