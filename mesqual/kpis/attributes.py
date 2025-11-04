@@ -78,7 +78,6 @@ class KPIAttributes:
 
     # Unit handling
     unit: Units.Unit | None = None
-    target_unit: Units.Unit | None = None
 
     # Additional attributes
     dataset_attributes: dict[str, Any] = field(default_factory=dict)
@@ -109,7 +108,6 @@ class KPIAttributes:
             'name_suffix': self.name_suffix,
             'custom_name': self.custom_name,
             'unit': self.unit,
-            'target_unit': self.target_unit,
             **self.dataset_attributes,
             **self.extra_attributes
         }

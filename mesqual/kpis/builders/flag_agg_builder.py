@@ -91,7 +91,6 @@ class FlagAggKPIBuilder(KPIBuilder[FlagAggKPIDefinition]):
         self._flags: list[FlagTypeProtocol] = []
         self._aggregations: list[Aggregation] = []
         self._objects: list[Hashable] | Literal['auto'] = 'auto'
-        self._target_units: dict[Hashable, Units.Unit] = {}
         self._model_flags: dict[FlagTypeProtocol, FlagTypeProtocol] = {}
 
     def for_flag(self, flag: FlagTypeProtocol) -> FlagAggKPIBuilder:
@@ -233,20 +232,6 @@ class FlagAggKPIBuilder(KPIBuilder[FlagAggKPIDefinition]):
         self._objects = objects
         return self
 
-    def with_target_unit(self, flag: FlagTypeProtocol, unit: Units.Unit) -> FlagAggKPIBuilder:
-        """
-        Set target unit for specific flag.
-
-        Args:
-            flag: Flag to set unit for
-            unit: Target unit
-
-        Returns:
-            Self for chaining
-        """
-        self._target_units[flag] = unit
-        return self
-
     def with_model_flag(self, flag: FlagTypeProtocol, model_flag: FlagTypeProtocol) -> FlagAggKPIBuilder:
         """
         Set explicit model flag for a specific flag.
@@ -293,7 +278,6 @@ class FlagAggKPIBuilder(KPIBuilder[FlagAggKPIDefinition]):
                     name_prefix=self._name_prefix,
                     name_suffix=self._name_suffix,
                     custom_name=self._custom_name,
-                    target_unit=self._target_units.get(flag),
                     extra_attributes=self._extra_attributes,
                 )
                 definitions.append(definition)

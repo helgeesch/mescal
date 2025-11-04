@@ -167,12 +167,8 @@ class KPIDataItem(VisualizableDataItem):
         if converter is not None:
             return converter.convert(self.kpi.quantity)
 
-        # Default behavior: use target_unit if specified, otherwise auto-select
-        if self.kpi.attributes.target_unit:
-            q = Units.get_quantity_in_target_unit(self.kpi.quantity, self.kpi.attributes.target_unit)
-        else:
-            q = Units.get_quantity_in_pretty_unit(self.kpi.quantity)
-
+        # Default behavior: auto-select pretty unit
+        q = Units.get_quantity_in_pretty_unit(self.kpi.quantity)
         text = Units.get_pretty_text_for_quantity(q, include_unit=False)
         return text
 

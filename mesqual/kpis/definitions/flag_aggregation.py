@@ -37,7 +37,6 @@ class FlagAggKPIDefinition(KPIDefinition):
     name_prefix: str = ''
     name_suffix: str = ''
     custom_name: str | None = None  # Complete name override
-    target_unit: Units.Unit | None = None
 
     def generate_kpis(self, dataset: Dataset) -> list[KPI]:
         """
@@ -101,7 +100,6 @@ class FlagAggKPIDefinition(KPIDefinition):
                 name_suffix=self.name_suffix,
                 custom_name=kpi_custom_name,
                 unit=unit,
-                target_unit=self.target_unit,
                 dataset_attributes=dataset.attributes,
                 extra_attributes=self.extra_attributes or dict()
             )
