@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+import pandas as pd
 
+from mesqual.datasets.dataset_comparison import DatasetComparison
 from mesqual.kpis.definitions.base import KPIDefinition
 from mesqual.kpis.kpi import KPI
 from mesqual.kpis.attributes import KPIAttributes
@@ -10,7 +12,6 @@ from mesqual.kpis.aggregations import ValueComparison
 
 if TYPE_CHECKING:
     from mesqual.typevars import FlagTypeProtocol
-    from mesqual.datasets.dataset_comparison import DatasetComparison
 
 
 @dataclass
@@ -60,10 +61,9 @@ class ComparisonKPIDefinition(KPIDefinition):
         Raises:
             AttributeError: If dataset is not a DatasetComparison
         """
-        # Verify we have a comparison dataset
-        if not hasattr(dataset, 'reference_dataset') or not hasattr(dataset, 'variation_dataset'):
-            raise AttributeError(
-                f"ComparisonKPIDefinition requires a DatasetComparison, got {type(dataset).__name__}"
+        if not isinstance(dataset, DatasetComparison):
+            raise TypeError(
+                f"ComparisonKPIDefinition requires a {DatasetComparison.__name__}, got {type(dataset).__name__}"
             )
 
         reference_dataset = dataset.reference_dataset
@@ -78,6 +78,7 @@ class ComparisonKPIDefinition(KPIDefinition):
         }
 
         comparison_kpis = []
+
         for ref_kpi in reference_kpis:
             obj_name = ref_kpi.attributes.object_name
             if obj_name not in variation_kpis_by_object:
@@ -98,7 +99,7 @@ class ComparisonKPIDefinition(KPIDefinition):
                 object_name=obj_name,
                 aggregation=ref_kpi.attributes.aggregation,
                 dataset_name=dataset.name,
-                dataset_type=str(type(dataset)),
+                dataset_type=type(dataset),
                 value_comparison=self.comparison,
                 reference_dataset_name=reference_dataset.name,
                 variation_dataset_name=variation_dataset.name,
@@ -115,6 +116,11 @@ class ComparisonKPIDefinition(KPIDefinition):
                 attributes=attributes,
                 dataset=dataset
             )
+            for k in [var_kpi, ref_kpi]:
+                obj_info = k.get_object_info_from_model()
+                if isinstance(obj_info, pd.Series) and not obj_info.empty:
+                    comparison_kpi._object_info = obj_info
+                    break
 
             comparison_kpis.append(comparison_kpi)
 
