@@ -191,17 +191,27 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         ... )
         >>> resolved = resolver.resolve_feature(kpi_data_item)
     """
-    def __init__(self, feature_type: Type[ResolvedFeatureType] = None, **property_mappers: PropertyMapper | Any):
+    def __init__(
+        self,
+        feature_type: Type[ResolvedFeatureType] = None,
+        value_converter: 'QuantityToTextConverter' = None,
+        **property_mappers: PropertyMapper | Any
+    ):
         self.feature_type: Type[ResolvedFeatureType] = feature_type or ResolvedFeatureType.__constraints__[0]
+        self.value_converter = value_converter
 
         _defaults_if_true = dict(
             tooltip=self._default_tooltip_generator,
             popup=self._default_popup_generator,
             text_print_content=self._default_text_print_generator,
         )
-        for k, mapper in _defaults_if_true.items():
+        for k, mapper_factory in _defaults_if_true.items():
             if property_mappers.get(k, None) is True:
-                property_mappers[k] = mapper()
+                # Pass converter to text_print_generator
+                if k == 'text_print_content':
+                    property_mappers[k] = mapper_factory(converter=value_converter)
+                else:
+                    property_mappers[k] = mapper_factory()
             elif property_mappers.get(k, None) is False:
                 property_mappers[k] = None
 
@@ -273,14 +283,17 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         return PropertyMapper(get_popup)
 
     @staticmethod
-    def _default_text_print_generator() -> PropertyMapper:
+    def _default_text_print_generator(converter: 'QuantityToTextConverter' = None) -> PropertyMapper:
         """
         Create default text content generator for overlay labels.
+
+        Args:
+            converter: Optional QuantityToTextConverter for custom formatting
 
         Returns:
             PropertyMapper that returns data item text representation
         """
-        return PropertyMapper(lambda d: d.get_text_representation())
+        return PropertyMapper(lambda d: d.get_text_representation(converter=converter))
 
     @staticmethod
     def _default_geometry_mapper() -> PropertyMapper:

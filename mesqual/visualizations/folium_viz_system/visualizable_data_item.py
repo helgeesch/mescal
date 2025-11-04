@@ -152,14 +152,22 @@ class KPIDataItem(VisualizableDataItem):
     def get_name(self) -> str:
         return str(self.kpi.name)
 
-    def get_text_representation(self) -> str:
+    def get_text_representation(self, converter: 'QuantityToTextConverter' = None) -> str:
         """
         Get formatted text representation of the KPI value.
-        
+
+        Args:
+            converter: Optional QuantityToTextConverter for custom formatting
+
         Returns:
             Formatted string representation of the KPI value
         """
-        from mesqual import Units
+        from mesqual.units import Units, QuantityToTextConverter
+
+        if converter is not None:
+            return converter.convert(self.kpi.quantity)
+
+        # Default behavior: use target_unit if specified, otherwise auto-select
         if self.kpi.attributes.target_unit:
             q = Units.get_quantity_in_target_unit(self.kpi.quantity, self.kpi.attributes.target_unit)
         else:
