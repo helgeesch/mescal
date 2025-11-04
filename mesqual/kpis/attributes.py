@@ -1,11 +1,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Hashable
+from typing import Any, Hashable, Type, TYPE_CHECKING, Union
+import numpy as np
 
 from mesqual.flag import FlagTypeProtocol
 from mesqual.kpis.aggregations import Aggregation, ValueComparison, ArithmeticValueOperation
 from mesqual.units import Units
+
+if TYPE_CHECKING:
+    from mesqual.datasets import Dataset
+
+
+PRIMITIVE_VALUE_TYPES = Union[None, bool, int, float, str]
+
+
+def _to_primitive(value: Any) -> PRIMITIVE_VALUE_TYPES:
+    if value is None:
+        return value
+    if isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (np.integer, np.floating)):
+        return value.item()
+    if isinstance(value, np.bool_):
+        return bool(value)
+    return str(value)
 
 
 @dataclass
@@ -44,7 +63,7 @@ class KPIAttributes:
 
     # Dataset context
     dataset_name: str = ''
-    dataset_type: str = ''
+    dataset_type: Type[Dataset] = None
 
     # Comparison-specific
     value_comparison: ValueComparison | None = None
@@ -75,27 +94,27 @@ class KPIAttributes:
         Returns:
             Dictionary representation of attributes
         """
-        if not primitive_values:
-            raise NotImplementedError # TODO: refactor to complex and primitive types
         d = {
-            'flag': str(self.flag),
-            'model_flag': str(self.model_flag),
+            'flag': self.flag,
+            'model_flag': self.model_flag,
             'object_name': self.object_name,
-            'aggregation': str(self.aggregation) if primitive_values and self.aggregation else self.aggregation,
+            'aggregation': self.aggregation,
             'dataset_name': self.dataset_name,
             'dataset_type': self.dataset_type,
-            'value_comparison': str(self.value_comparison) if primitive_values and self.value_comparison else self.value_comparison,
-            'arithmetic_operation': str(self.arithmetic_operation) if primitive_values and self.arithmetic_operation else self.arithmetic_operation,
+            'value_comparison': self.value_comparison,
+            'arithmetic_operation': self.arithmetic_operation,
             'reference_dataset_name': self.reference_dataset_name,
             'variation_dataset_name': self.variation_dataset_name,
             'name_prefix': self.name_prefix,
             'name_suffix': self.name_suffix,
             'custom_name': self.custom_name,
-            'unit': str(self.unit) if primitive_values and self.unit else self.unit,
-            'target_unit': str(self.target_unit) if primitive_values and self.target_unit else self.target_unit,
+            'unit': self.unit,
+            'target_unit': self.target_unit,
             **self.dataset_attributes,
             **self.extra_attributes
         }
+        if primitive_values:
+            d = {k: _to_primitive(v) for k, v in d.items()}
         return d
 
     def get(self, key: str, default: Any = None) -> Any:
