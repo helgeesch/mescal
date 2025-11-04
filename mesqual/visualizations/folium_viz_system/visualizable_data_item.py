@@ -159,14 +159,23 @@ class KPIDataItem(VisualizableDataItem):
         Returns:
             Formatted string representation of the KPI value
         """
-        return f"{self.kpi.value:.1f}"  # TODO: use pretty formatting and quantities etc.
+        from mesqual import Units
+        if self.kpi.attributes.target_unit:
+            q = Units.get_quantity_in_target_unit(self.kpi.quantity, self.kpi.attributes.target_unit)
+        else:
+            q = Units.get_quantity_in_pretty_unit(self.kpi.quantity)
+
+        text = Units.get_pretty_text_for_quantity(q, include_unit=False)
+        return text
 
     def get_tooltip_data(self) -> dict:
         kpi_data = {
             'KPI': self.kpi.get_kpi_name_with_dataset_name(),
             'Value': str(self.kpi.quantity),
         }
+        _MAX_MODEL_DATA_LEN = 3
         model_data = self._model_item.get_tooltip_data()
+        model_data = dict(list(model_data.items())[:_MAX_MODEL_DATA_LEN])
         return {**kpi_data, **model_data}
 
     def get_object_attribute(self, attribute: str) -> Any:

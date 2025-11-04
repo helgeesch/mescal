@@ -288,7 +288,7 @@ class Units(metaclass=_IterableUnitsMeta):
             include_sign: bool = None,
     ) -> str:
         if decimals is None:
-            decimals = cls._get_pretty_decimals(quantity)
+            decimals = cls.get_pretty_decimals(quantity)
         if thousands_separator is None:
             thousands_separator = ''
 
@@ -341,7 +341,7 @@ class Units(metaclass=_IterableUnitsMeta):
         raise Exception(f'How did you end up here for value {quantity}')
 
     @classmethod
-    def _get_pretty_decimals(cls, quantity: Quantity) -> int:
+    def get_pretty_decimals(cls, quantity: Quantity) -> int:
 
         # if quantity.units == Units.per_unit:
         #     return 3
