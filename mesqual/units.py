@@ -367,6 +367,130 @@ class Units(metaclass=_IterableUnitsMeta):
         return str(unit).replace(str(base_unit), '')
 
 
+class QuantityToTextConverter:
+    """
+    Configurable converter for formatting Quantity objects as text strings.
+
+    Stores formatting configuration that can be reused across multiple quantity
+    conversions, enabling consistent formatting across KPI collections and visualizations.
+
+    Args:
+        target_unit: Target unit for conversion (if None, uses pretty unit selection)
+        decimals: Number of decimal places (if None, auto-determined)
+        thousands_separator: Separator for thousands (default: '')
+        include_unit: Whether to include unit in output (default: True)
+        include_oom: Whether to include order of magnitude prefix (default: True)
+        include_sign: Whether to include + sign for positive values (default: None/auto)
+
+    Examples:
+        Basic usage with fixed configuration:
+        >>> converter = QuantityToTextConverter(
+        ...     target_unit=Units.MWh,
+        ...     decimals=2,
+        ...     thousands_separator=' '
+        ... )
+        >>> converter.convert(5432.1 * Units.kWh)
+        '5.43 MWh'
+
+        Auto-configure from collection of quantities:
+        >>> quantities = [1000 * Units.EUR, 5000 * Units.EUR, 10000 * Units.EUR]
+        >>> converter = QuantityToTextConverter.from_quantities(quantities, decimals=0)
+        >>> [converter.convert(q) for q in quantities]
+        ['1 kEUR', '5 kEUR', '10 kEUR']
+    """
+
+    def __init__(
+        self,
+        target_unit: Unit = None,
+        decimals: int = None,
+        thousands_separator: str = None,
+        include_unit: bool = True,
+        include_oom: bool = True,
+        include_sign: bool = None,
+    ):
+        self.target_unit = target_unit
+        self.decimals = decimals
+        self.thousands_separator = thousands_separator if thousands_separator is not None else ''
+        self.include_unit = include_unit
+        self.include_oom = include_oom
+        self.include_sign = include_sign
+
+    def convert(self, quantity: Quantity) -> str:
+        """
+        Convert a Quantity to formatted text string using stored configuration.
+
+        Args:
+            quantity: The quantity to format
+
+        Returns:
+            Formatted text representation
+        """
+        # Apply target unit conversion if specified
+        if self.target_unit is not None:
+            quantity = Units.get_quantity_in_target_unit(quantity, self.target_unit)
+        else:
+            quantity = Units.get_quantity_in_pretty_unit(quantity)
+
+        # Use Units.get_pretty_text_for_quantity with stored configuration
+        return Units.get_pretty_text_for_quantity(
+            quantity,
+            decimals=self.decimals,
+            thousands_separator=self.thousands_separator,
+            include_unit=self.include_unit,
+            include_oom=self.include_oom,
+            include_sign=self.include_sign,
+        )
+
+    @classmethod
+    def from_quantities(
+        cls,
+        quantities: list[Quantity],
+        target_unit: Unit = None,
+        decimals: int = None,
+        thousands_separator: str = None,
+        include_unit: bool = True,
+        include_oom: bool = True,
+        include_sign: bool = None,
+    ) -> 'QuantityToTextConverter':
+        """
+        Create converter auto-configured for a collection of quantities.
+
+        Analyzes the provided quantities to determine an appropriate common unit
+        (if target_unit not specified) that works well for all values.
+
+        Args:
+            quantities: Collection of quantities to analyze
+            target_unit: Override auto-selected unit with specific target
+            decimals: Number of decimal places (if None, will be auto-determined per value)
+            thousands_separator: Separator for thousands (default: '')
+            include_unit: Whether to include unit in output (default: True)
+            include_oom: Whether to include order of magnitude prefix (default: True)
+            include_sign: Whether to include + sign for positive values (default: None/auto)
+
+        Returns:
+            Configured QuantityToTextConverter instance
+
+        Examples:
+            Auto-configure for price data:
+            >>> prices = [45.2 * Units.EUR_per_MWh, 67.8 * Units.EUR_per_MWh]
+            >>> converter = QuantityToTextConverter.from_quantities(prices, thousands_separator=' ')
+            >>> converter.convert(prices[0])
+            '45.20 €/MWh'
+        """
+        # Determine common pretty unit if not explicitly provided
+        if target_unit is None and quantities:
+            target_unit = Units.get_common_pretty_unit_for_quantities(quantities)
+
+        return cls(
+            target_unit=target_unit,
+            decimals=decimals,
+            thousands_separator=thousands_separator,
+            include_unit=include_unit,
+            include_oom=include_oom,
+            include_sign=include_sign,
+        )
+
+
 if __name__ == '__main__':
     test_values = [0.0123, 1.234, 1234.5678, 12345678.90123]
     test_units = [
