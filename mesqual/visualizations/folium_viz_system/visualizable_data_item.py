@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 from shapely import Point, Polygon, MultiPolygon, LineString
 
 from mesqual.kpis import KPI, KPICollection
+
+if TYPE_CHECKING:
+    from mesqual.units import QuantityToTextConverter
 
 
 class VisualizableDataItem(ABC):
@@ -152,7 +157,7 @@ class KPIDataItem(VisualizableDataItem):
     def get_name(self) -> str:
         return str(self.kpi.name)
 
-    def get_text_representation(self, converter: 'QuantityToTextConverter' = None) -> str:
+    def get_text_representation(self, converter: QuantityToTextConverter = None) -> str:
         """
         Get formatted text representation of the KPI value.
 
