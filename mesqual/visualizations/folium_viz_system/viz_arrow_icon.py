@@ -228,7 +228,7 @@ class ArrowIconGenerator(FoliumObjectGenerator[ArrowIconFeatureResolver]):
     def _feature_resolver_type(self) -> Type[ArrowIconFeatureResolver]:
         return ArrowIconFeatureResolver
 
-    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
+    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup, value_converter=None) -> None:
         """
         Generate and add a folium Marker with animated SVG arrow icon.
         
@@ -236,7 +236,7 @@ class ArrowIconGenerator(FoliumObjectGenerator[ArrowIconFeatureResolver]):
             data_item: Data item containing point location and associated data
             feature_group: Folium feature group to add the arrow marker to
         """
-        style = self.feature_resolver.resolve_feature(data_item)
+        style = self.feature_resolver.resolve_feature(data_item, value_converter=value_converter)
         if style.location is None:
             return
 

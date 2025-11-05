@@ -407,10 +407,12 @@ class KPICollectionMapVisualizer:
         self.grouping_manager = kpi_grouping_manager or KPIGroupingManager()
         self.converter_resolver = KPIValueConverterResolver(value_formatting)
 
-        # Enhanced tooltip if needed
+        # Replace tooltip mapper with enhanced version if needed
         if self.include_related_kpis_in_tooltip:
+            enhanced_tooltip = self._create_enhanced_tooltip_generator()
             for g in self.generators:
-                g.tooltip_generator = self._create_enhanced_tooltip_generator()
+                g.feature_resolver.property_mappers['tooltip'] = enhanced_tooltip
+
         self.kwargs = kwargs
 
     def generate_and_add_feature_groups_to_map(
@@ -479,29 +481,10 @@ class KPICollectionMapVisualizer:
                     data_item = KPIDataItem(kpi, kpi_collection, study_manager=self.study_manager, **self.kwargs)
 
                     for generator in self.generators:
-                        # Store original value_converter
-                        original_converter = generator.feature_resolver.value_converter
-
-                        # Temporarily set converter for this KPI
-                        generator.feature_resolver.value_converter = converter
-
-                        if self.include_related_kpis_in_tooltip:
-                            _tmp = generator.feature_resolver.property_mappers.get('tooltip', None)
-                            generator.feature_resolver.property_mappers['tooltip'] = self._create_enhanced_tooltip_generator(converter)
-
                         try:
-                            generator.generate(data_item, fg)
+                            generator.generate(data_item, fg, value_converter=converter)
                         except Exception as e:
                             failed.append((kpi.name, group_name, e))
-                        finally:
-                            # Restore original converter
-                            generator.feature_resolver.value_converter = original_converter
-
-                            if self.include_related_kpis_in_tooltip:
-                                if _tmp is not None:
-                                    generator.feature_resolver.property_mappers['tooltip'] = _tmp
-                                else:
-                                    generator.feature_resolver.property_mappers.pop('tooltip', None)
 
                     pbar.update(1)
 
@@ -513,23 +496,23 @@ class KPICollectionMapVisualizer:
             )
         return feature_groups
 
-    def _create_enhanced_tooltip_generator(self, converter: QuantityToTextConverter = None) -> PropertyMapper:
-        """Create tooltip generator that includes related KPIs.
+    def _create_enhanced_tooltip_generator(self) -> PropertyMapper:
+        """
+        Create tooltip generator that includes related KPIs.
 
-        Args:
-            converter: Optional QuantityToTextConverter for formatting KPI values
+        Returns a PropertyMapper that accepts value_converter as a parameter,
+        enabling dynamic converter selection per KPI.
         """
 
-        def generate_tooltip(data_item: KPIDataItem) -> str:
-
+        def generate_tooltip(data_item: KPIDataItem, value_converter=None) -> str:
             kpi = data_item.kpi
             kpi_name = kpi.get_kpi_name_with_dataset_name()
 
             from mesqual.units import Units
 
             # Use converter if provided, otherwise use default formatting
-            if converter is not None:
-                kpi_text = converter.convert(kpi.quantity)
+            if value_converter is not None:
+                kpi_text = value_converter.convert(kpi.quantity)
             else:
                 kpi_quantity = Units.get_quantity_in_pretty_unit(kpi.quantity)
                 kpi_text = Units.get_pretty_text_for_quantity(kpi_quantity, thousands_separator=' ')
@@ -553,8 +536,8 @@ class KPICollectionMapVisualizer:
                             related_kpi_name = related_kpi.get_kpi_name_with_dataset_name()
 
                             # Use converter for related KPIs too if provided
-                            if converter is not None:
-                                related_kpi_value_text = converter.convert(related_kpi.quantity)
+                            if value_converter is not None:
+                                related_kpi_value_text = value_converter.convert(related_kpi.quantity)
                             else:
                                 related_kpi_quantity = Units.get_quantity_in_pretty_unit(related_kpi.quantity)
                                 related_kpi_value_text = Units.get_pretty_text_for_quantity(

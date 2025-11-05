@@ -46,8 +46,24 @@ class PropertyMapper:
     def __init__(self, mapping: Callable[[VisualizableDataItem], Any]):
         self.mapping = mapping
 
-    def map_data_item(self, data_item: VisualizableDataItem) -> Any:
-        return self.mapping(data_item)
+    def map_data_item(self, data_item: VisualizableDataItem, value_converter=None) -> Any:
+        """
+        Map data item to property value.
+
+        Args:
+            data_item: Data item to map
+            value_converter: Optional QuantityToTextConverter for formatting (passed to mapping if supported)
+
+        Returns:
+            Mapped property value
+        """
+        # Check if mapping function accepts converter parameter
+        import inspect
+        sig = inspect.signature(self.mapping)
+        if 'value_converter' in sig.parameters or 'converter' in sig.parameters:
+            return self.mapping(data_item, value_converter=value_converter)
+        else:
+            return self.mapping(data_item)
 
     @classmethod
     def from_static_value(cls, value: Any) -> 'PropertyMapper':
@@ -194,11 +210,9 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
     def __init__(
         self,
         feature_type: Type[ResolvedFeatureType] = None,
-        value_converter: 'QuantityToTextConverter' = None,
         **property_mappers: PropertyMapper | Any
     ):
         self.feature_type: Type[ResolvedFeatureType] = feature_type or ResolvedFeatureType.__constraints__[0]
-        self.value_converter = value_converter
 
         _defaults_if_true = dict(
             tooltip=self._default_tooltip_generator,
@@ -207,22 +221,28 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         )
         for k, mapper_factory in _defaults_if_true.items():
             if property_mappers.get(k, None) is True:
-                # Pass converter to tooltip and text_print_generator
-                if k in ['tooltip', 'text_print_content']:
-                    property_mappers[k] = mapper_factory(converter=value_converter)
-                else:
-                    property_mappers[k] = mapper_factory()
+                property_mappers[k] = mapper_factory()
             elif property_mappers.get(k, None) is False:
                 property_mappers[k] = None
 
         self.property_mappers: dict[str, PropertyMapper] = self._normalize_property_mappers(property_mappers)
 
-    def resolve_feature(self, data_item: VisualizableDataItem) -> ResolvedFeatureType:
+    def resolve_feature(self, data_item: VisualizableDataItem, value_converter=None) -> ResolvedFeatureType:
+        """
+        Resolve feature properties from data item.
+
+        Args:
+            data_item: Data item to resolve
+            value_converter: Optional QuantityToTextConverter for KPI value formatting
+
+        Returns:
+            Resolved feature with all computed properties
+        """
         resolved = self.feature_type()
         for prop, mapper in self.property_mappers.items():
-            resolved[prop] = mapper.map_data_item(data_item)
+            resolved[prop] = mapper.map_data_item(data_item, value_converter=value_converter)
             if prop in ['tooltip', 'popup', 'text_print_content']:
-                setattr(resolved, prop, mapper.map_data_item(data_item))
+                setattr(resolved, prop, mapper.map_data_item(data_item, value_converter=value_converter))
         return resolved
 
     @staticmethod
@@ -239,26 +259,23 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         return fallback
 
     @staticmethod
-    def _default_tooltip_generator(converter: 'QuantityToTextConverter' = None) -> PropertyMapper:
+    def _default_tooltip_generator() -> PropertyMapper:
         """
         Create default tooltip generator showing data item information.
-
-        Args:
-            converter: Optional QuantityToTextConverter for custom KPI value formatting
 
         Returns:
             PropertyMapper that generates HTML table tooltips with data item attributes
         """
 
-        def get_tooltip(data_item: VisualizableDataItem) -> str:
+        def get_tooltip(data_item: VisualizableDataItem, value_converter=None) -> str:
             from mesqual.visualizations.folium_viz_system.visualizable_data_item import KPIDataItem
 
             tooltip_data = data_item.get_tooltip_data()
 
             # For KPI data items, format the value using converter if provided
-            if isinstance(data_item, KPIDataItem) and converter is not None:
+            if isinstance(data_item, KPIDataItem) and value_converter is not None:
                 from mesqual.units import Units
-                formatted_value = converter.convert(data_item.kpi.quantity)
+                formatted_value = value_converter.convert(data_item.kpi.quantity)
                 tooltip_data['Value'] = formatted_value
 
             html = '<table style="border-collapse: collapse;">\n'
@@ -294,17 +311,17 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         return PropertyMapper(get_popup)
 
     @staticmethod
-    def _default_text_print_generator(converter: 'QuantityToTextConverter' = None) -> PropertyMapper:
+    def _default_text_print_generator() -> PropertyMapper:
         """
         Create default text content generator for overlay labels.
-
-        Args:
-            converter: Optional QuantityToTextConverter for custom formatting
 
         Returns:
             PropertyMapper that returns data item text representation
         """
-        return PropertyMapper(lambda d: d.get_text_representation(converter=converter))
+        def get_text(data_item: VisualizableDataItem, value_converter=None) -> str:
+            return data_item.get_text_representation(converter=value_converter)
+
+        return PropertyMapper(get_text)
 
     @staticmethod
     def _default_geometry_mapper() -> PropertyMapper:
@@ -418,8 +435,15 @@ class FoliumObjectGenerator(Generic[FeatureResolverType], ABC):
         return FeatureResolver
 
     @abstractmethod
-    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
-        """Generate folium object and add it to the feature group."""
+    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup, value_converter=None) -> None:
+        """
+        Generate folium object and add it to the feature group.
+
+        Args:
+            data_item: Data item to visualize
+            feature_group: Feature group to add to
+            value_converter: Optional QuantityToTextConverter for KPI value formatting
+        """
         pass
 
     def generate_objects_for_model_df(

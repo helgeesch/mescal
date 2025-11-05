@@ -207,7 +207,7 @@ class LineGenerator(FoliumObjectGenerator[LineFeatureResolver]):
     def _feature_resolver_type(self) -> Type[LineFeatureResolver]:
         return LineFeatureResolver
 
-    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
+    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup, value_converter=None) -> None:
         """
         Generate and add a folium PolyLine to the feature group with automatic offset.
         
@@ -215,7 +215,7 @@ class LineGenerator(FoliumObjectGenerator[LineFeatureResolver]):
             data_item: Data item containing LineString geometry and associated data
             feature_group: Folium feature group to add the line to
         """
-        style = self.feature_resolver.resolve_feature(data_item)
+        style = self.feature_resolver.resolve_feature(data_item, value_converter=value_converter)
         geometry = style.geometry
         if not isinstance(geometry, (LineString, MultiLineString)):
             return

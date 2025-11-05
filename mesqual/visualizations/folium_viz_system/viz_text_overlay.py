@@ -182,7 +182,7 @@ class TextOverlayGenerator(FoliumObjectGenerator[TextOverlayFeatureResolver]):
     def _feature_resolver_type(self) -> Type[TextOverlayFeatureResolver]:
         return TextOverlayFeatureResolver
 
-    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
+    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup, value_converter=None) -> None:
         """
         Generate and add a folium Marker with styled text overlay.
         
@@ -190,7 +190,7 @@ class TextOverlayGenerator(FoliumObjectGenerator[TextOverlayFeatureResolver]):
             data_item: Data item containing point location and text content
             feature_group: Folium feature group to add the text marker to
         """
-        style = self.feature_resolver.resolve_feature(data_item)
+        style = self.feature_resolver.resolve_feature(data_item, value_converter=value_converter)
         if not isinstance(style.location, Point):
             return
 
