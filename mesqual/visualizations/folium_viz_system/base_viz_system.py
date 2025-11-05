@@ -52,18 +52,12 @@ class PropertyMapper:
 
         Args:
             data_item: Data item to map
-            value_converter: Optional QuantityToTextConverter for formatting (passed to mapping if supported)
+            value_converter: Optional converter (ignored - kept for API compatibility)
 
         Returns:
             Mapped property value
         """
-        # Check if mapping function accepts converter parameter
-        import inspect
-        sig = inspect.signature(self.mapping)
-        if 'value_converter' in sig.parameters or 'converter' in sig.parameters:
-            return self.mapping(data_item, value_converter=value_converter)
-        else:
-            return self.mapping(data_item)
+        return self.mapping(data_item)
 
     @classmethod
     def from_static_value(cls, value: Any) -> 'PropertyMapper':
@@ -267,16 +261,8 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
             PropertyMapper that generates HTML table tooltips with data item attributes
         """
 
-        def get_tooltip(data_item: VisualizableDataItem, value_converter=None) -> str:
-            from mesqual.visualizations.folium_viz_system.visualizable_data_item import KPIDataItem
-
+        def get_tooltip(data_item: VisualizableDataItem) -> str:
             tooltip_data = data_item.get_tooltip_data()
-
-            # For KPI data items, format the value using converter if provided
-            if isinstance(data_item, KPIDataItem) and value_converter is not None:
-                from mesqual.units import Units
-                formatted_value = value_converter.convert(data_item.kpi.quantity)
-                tooltip_data['Value'] = formatted_value
 
             html = '<table style="border-collapse: collapse;">\n'
             for key, value in tooltip_data.items():
@@ -318,8 +304,8 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         Returns:
             PropertyMapper that returns data item text representation
         """
-        def get_text(data_item: VisualizableDataItem, value_converter=None) -> str:
-            return data_item.get_text_representation(converter=value_converter)
+        def get_text(data_item: VisualizableDataItem) -> str:
+            return data_item.get_text_representation()
 
         return PropertyMapper(get_text)
 

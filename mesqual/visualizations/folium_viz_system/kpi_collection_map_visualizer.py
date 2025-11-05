@@ -29,12 +29,13 @@ class KPIQuantityToTextConverterResolver:
         strategy: Formatting strategy to use
 
     Examples:
-        >>> resolver = KPIQuantityToTextConverterResolver('per_feature_group')
+        >>> resolver = KPIQuantityToTextConverterResolver('per_feature_group', collection)
         >>> converter = resolver.get_converter_for_kpi(kpi, group_name, kpi_group)
     """
 
-    def __init__(self, strategy: VALUE_FORMATTING_OPTIONS):
+    def __init__(self, strategy: VALUE_FORMATTING_OPTIONS, kpi_collection: KPICollection):
         self.strategy = strategy
+        self.kpi_collection = kpi_collection
         self._group_cache = {}
 
     def get_converter_for_kpi(
@@ -84,7 +85,7 @@ class KPIQuantityToTextConverterResolver:
 
         # per_collection: group by base unit
         by_base_unit = {}
-        for kpi in kpi_group:
+        for kpi in self.kpi_collection:
             base_unit = str(Units.get_base_unit_for_unit(kpi.quantity.units))
             if base_unit not in by_base_unit:
                 by_base_unit[base_unit] = []
@@ -435,7 +436,7 @@ class KPICollectionMapVisualizer:
         feature_groups = []
         failed = []
 
-        kpi_to_text_converter_resolver = KPIQuantityToTextConverterResolver(self.value_formatting)
+        kpi_to_text_converter_resolver = KPIQuantityToTextConverterResolver(self.value_formatting, kpi_collection)
 
         pbar = tqdm(kpi_collection, total=kpi_collection.size, desc=f'{self.__class__.__name__}')
         with pbar:
@@ -455,20 +456,9 @@ class KPICollectionMapVisualizer:
 
                 for kpi in kpi_group:
                     converter = kpi_to_text_converter_resolver.get_converter_for_kpi(kpi, group_name, kpi_group)
-
                     data_item = KPIDataItem(kpi, kpi_collection, study_manager=self.study_manager, **self.kwargs)
-
                     for generator in self.generators:
-                        # Create generator with converter-specific tooltip if needed
-                        if self.include_related_kpis_in_tooltip:
-                            import copy
-                            gen = copy.copy(generator)
-                            gen.feature_resolver = copy.copy(generator.feature_resolver)
-                            gen.feature_resolver.property_mappers = generator.feature_resolver.property_mappers.copy()
-                            gen.feature_resolver.property_mappers['tooltip'] = self._create_enhanced_tooltip_generator(converter)
-                        else:
-                            gen = generator
-
+                        gen = self._create_generator_with_converter_specific_tooltip_if_needed(converter, generator)
                         try:
                             gen.generate(data_item, fg, value_converter=converter)
                         except Exception as e:
@@ -483,6 +473,49 @@ class KPICollectionMapVisualizer:
                 f'Exception while trying to add {len(failed)} KPIs: {failed[:3]}'
             )
         return feature_groups
+
+    def _create_generator_with_converter_specific_tooltip_if_needed(self, converter, generator):
+        """Create generator copy with converter-specific mappers if needed."""
+        import copy
+
+        # Check if we need to modify any mappers
+        needs_modification = (
+            self.include_related_kpis_in_tooltip or
+            'text_print_content' in generator.feature_resolver.property_mappers
+        )
+
+        if not needs_modification:
+            return generator
+
+        # Create shallow copies
+        gen = copy.copy(generator)
+        gen.feature_resolver = copy.copy(generator.feature_resolver)
+        gen.feature_resolver.property_mappers = generator.feature_resolver.property_mappers.copy()
+
+        # Replace tooltip with enhanced version if needed
+        if self.include_related_kpis_in_tooltip:
+            gen.feature_resolver.property_mappers['tooltip'] = self._create_enhanced_tooltip_generator(converter)
+
+        # Replace text_print_content with converter-specific version if present
+        if 'text_print_content' in gen.feature_resolver.property_mappers:
+            gen.feature_resolver.property_mappers['text_print_content'] = self._create_text_print_generator(converter)
+
+        return gen
+
+    def _create_text_print_generator(self, converter: QuantityToTextConverter) -> PropertyMapper:
+        """
+        Create text print generator with fixed converter.
+
+        Args:
+            converter: QuantityToTextConverter to use for formatting
+
+        Returns:
+            PropertyMapper with converter baked into the closure
+        """
+        def get_text(data_item: VisualizableDataItem) -> str:
+            return data_item.get_text_representation(converter=converter)
+
+        return PropertyMapper(get_text)
 
     def _create_enhanced_tooltip_generator(self, converter: QuantityToTextConverter) -> PropertyMapper:
         """

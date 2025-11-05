@@ -358,6 +358,8 @@ class Units(metaclass=_IterableUnitsMeta):
             return 2
         elif abs_value > 0.01:
             return 3
+        elif abs_value == 0:
+            return 0
         else:
             return 5
 
@@ -410,7 +412,7 @@ class QuantityToTextConverter:
     ):
         self.target_unit = target_unit
         self.decimals = decimals
-        self.thousands_separator = thousands_separator if thousands_separator is not None else ''
+        self.thousands_separator = thousands_separator or ''
         self.include_unit = include_unit
         self.include_oom = include_oom
         self.include_sign = include_sign
