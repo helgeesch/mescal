@@ -159,16 +159,15 @@ class AreaGenerator(FoliumObjectGenerator[AreaFeatureResolver]):
     def _feature_resolver_type(self) -> Type[AreaFeatureResolver]:
         return AreaFeatureResolver
 
-    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup, value_converter=None) -> None:
+    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
         """
         Generate and add a folium GeoJson polygon to the feature group.
 
         Args:
             data_item: Data item containing polygon geometry and associated data
             feature_group: Folium feature group to add the polygon to
-            value_converter: Optional QuantityToTextConverter for KPI value formatting
         """
-        style = self.feature_resolver.resolve_feature(data_item, value_converter=value_converter)
+        style = self.feature_resolver.resolve_feature(data_item)
 
         geometry = style.geometry
         if not isinstance(geometry, (Polygon, MultiPolygon)):

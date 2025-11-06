@@ -1,6 +1,7 @@
 from typing import Iterator, ClassVar
 import numpy as np
-from pint import get_application_registry, UnitRegistry, set_application_registry, Unit, Quantity
+from pint import UnitRegistry, Unit, Quantity
+from math import log10, ceil
 
 from mesqual.enums import QuantityTypeEnum
 
@@ -199,9 +200,9 @@ class Units(metaclass=_IterableUnitsMeta):
 
         Strategy:
         1. Verify all quantities have same dimensionality
-        2. Find median order of magnitude
-        3. Select unit closest to median OOM
-        4. Ensure most values fit well (< 10,000 in magnitude)
+        2. Convert all quantities to all available units
+        3. Select unit with most values having abs(magnitude) < 10,000
+        4. If tie, select unit giving largest magnitudes (avoid tiny decimals)
 
         Args:
             quantities: List of quantities with same dimensionality
@@ -213,9 +214,14 @@ class Units(metaclass=_IterableUnitsMeta):
             ValueError: If quantities have different dimensionalities or list is empty
 
         Examples:
+
             >>> quantities = [1_000_000 * Units.EUR, 5_000_000 * Units.EUR]
             >>> Units.get_common_pretty_unit_for_quantities(quantities)
-            Units.MEUR
+                Units.MEUR
+
+            >>> quantities = [0.03 * Units.EUR_per_MWh, -0.02 * Units.EUR_per_MWh, 0.01 * Units.EUR_per_MWh]
+            >>> Units.get_common_pretty_unit_for_quantities(quantities)
+                Units.EUR/Units.MWh  # Not EUR/Wh which would give tiny values
         """
         if not quantities:
             raise ValueError("Cannot find common unit for empty list of quantities")
@@ -229,47 +235,43 @@ class Units(metaclass=_IterableUnitsMeta):
                     f"Found {q.units} which differs from {base_unit}"
                 )
 
-        # Convert all to base unit and get magnitudes
-        magnitudes = [abs(q.to(base_unit).magnitude) for q in quantities]
-
-        # Filter out zeros for median calculation
-        non_zero_magnitudes = [m for m in magnitudes if m > 0]
-        if not non_zero_magnitudes:
-            # All values are zero, return base unit
+        # Handle all-zero case
+        non_zero_quantities = [q for q in quantities if abs(q.magnitude) > 0]
+        if not non_zero_quantities:
+            # All values are zero, return common unit if all same, else base unit
+            if len(set([q.units for q in quantities])) == 1:
+                return quantities[0].units
             return base_unit
 
-        # Find median order of magnitude
-        median_magnitude = np.median(non_zero_magnitudes)
-
-        # Get all available units with same base
+        # Get all available units for this dimensionality
         available_units = cls.get_all_units_with_equal_base(base_unit)
         if not available_units:
+            # return common unit if all same, else base unit
+            if len(set([q.units for q in quantities])) == 1:
+                return quantities[0].units
             return base_unit
 
-        # Sort by order of magnitude (largest first)
-        sorted_units = sorted(
-            available_units,
-            key=lambda x: cls.get_oom_of_unit(x),
-            reverse=True
-        )
+        # Evaluate each unit
+        best_unit = base_unit
+        best_count_under_10k = -1
+        best_median_magnitude = -1
 
-        # Find unit where most values will be < 10,000
-        # Start with unit closest to median, then adjust if needed
-        best_unit = cls.get_closest_unit_for_oom(base_unit, median_magnitude)
+        for unit in available_units:
+            # Convert all quantities to this unit
+            magnitudes = [abs(q.to(unit).magnitude) for q in non_zero_quantities]
 
-        # Verify that most values (>= 80%) fit well in this unit (< 10,000)
-        values_in_unit = [abs(q.to(best_unit).magnitude) for q in quantities]
-        non_zero_values = [v for v in values_in_unit if v > 0]
+            # Count how many values are under 10,000
+            count_under_10k = sum(1 for m in magnitudes if m < 10_000)
 
-        if non_zero_values:
-            fit_count = sum(1 for v in non_zero_values if v < 10_000)
-            fit_ratio = fit_count / len(non_zero_values)
+            # Get median magnitude for tie-breaking
+            median_magnitude = np.median(magnitudes)
 
-            # If less than 80% fit, try larger unit
-            if fit_ratio < 0.8:
-                unit_index = sorted_units.index(best_unit)
-                if unit_index > 0:  # There's a larger unit available
-                    best_unit = sorted_units[unit_index - 1]
+            # Update best if this unit is better
+            if (count_under_10k > best_count_under_10k or
+                (count_under_10k == best_count_under_10k and median_magnitude > best_median_magnitude)):
+                best_unit = unit
+                best_count_under_10k = count_under_10k
+                best_median_magnitude = median_magnitude
 
         return best_unit
 
@@ -473,15 +475,19 @@ class QuantityToTextConverter:
             Configured QuantityToTextConverter instance
 
         Examples:
+
             Auto-configure for price data:
             >>> prices = [45.2 * Units.EUR_per_MWh, 67.8 * Units.EUR_per_MWh]
             >>> converter = QuantityToTextConverter.from_quantities(prices, thousands_separator=' ')
             >>> converter.convert(prices[0])
-            '45.20 €/MWh'
+                '45.20 €/MWh'
         """
         # Determine common pretty unit if not explicitly provided
         if target_unit is None and quantities:
             target_unit = Units.get_common_pretty_unit_for_quantities(quantities)
+
+        if decimals is None:
+            decimals = cls._pretty_decimal_precision([q.magnitude for q in quantities])
 
         return cls(
             target_unit=target_unit,
@@ -491,6 +497,29 @@ class QuantityToTextConverter:
             include_oom=include_oom,
             include_sign=include_sign,
         )
+
+    @staticmethod
+    def _pretty_decimal_precision(values):
+        """Determine minimal decimal places to differentiate values,
+        with special rule: any |value| < 0.1 -> at least 2 decimals."""
+        if len(values) <= 1:
+            return None
+
+        sorted_vals = np.sort(values)
+        diffs = np.diff(sorted_vals)
+        non_zero_diffs = diffs[diffs > 0]
+
+        if len(non_zero_diffs) == 0:
+            return None  # all values identical
+
+        median_diff = np.median(non_zero_diffs)
+        decimals = max(0, ceil(-log10(median_diff)))
+
+        # Apply special rule for small absolute values
+        if np.any(np.abs(values) < 0.1):
+            decimals = max(decimals, 2)
+
+        return decimals
 
 
 if __name__ == '__main__':

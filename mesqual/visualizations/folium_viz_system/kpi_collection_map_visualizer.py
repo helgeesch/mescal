@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 SHOW_OPTIONS = Literal['first', 'last', 'none']
-VALUE_FORMATTING_OPTIONS = Union[Literal['per_feature_group', 'per_collection'], QuantityToTextConverter]
+VALUE_FORMATTING_OPTIONS = Union[Literal['per_feature_group', 'per_collection'], QuantityToTextConverter, None]
 
 
 class KPIQuantityToTextConverterResolver:
@@ -24,13 +24,14 @@ class KPIQuantityToTextConverterResolver:
     - 'per_feature_group': One converter per feature group (all KPIs in group)
     - 'per_collection': One converter per base unit across entire collection
     - Explicit QuantityToTextConverter: Use provided converter for all KPIs
+    - None: Uses QuantityToTextConverter with default setting
 
     Args:
         strategy: Formatting strategy to use
 
     Examples:
         >>> resolver = KPIQuantityToTextConverterResolver('per_feature_group', collection)
-        >>> converter = resolver.get_converter_for_kpi(kpi, group_name, kpi_group)
+        >>> converter = resolver.get_converter_for_kpi(group_name, kpi_group)
     """
 
     def __init__(self, strategy: VALUE_FORMATTING_OPTIONS, kpi_collection: KPICollection):
@@ -40,7 +41,6 @@ class KPIQuantityToTextConverterResolver:
 
     def get_converter_for_kpi(
         self,
-        kpi: KPI,
         group_id: str,
         kpi_group: KPICollection
     ) -> QuantityToTextConverter:
@@ -48,13 +48,15 @@ class KPIQuantityToTextConverterResolver:
         Get converter for a specific KPI, using group-level caching.
 
         Args:
-            kpi: KPI to get converter for
             group_id: Unique identifier for the feature group (used for caching)
             kpi_group: Full KPI group for building converters
 
         Returns:
             QuantityToTextConverter configured for this KPI
         """
+        if self.strategy is None:
+            return QuantityToTextConverter()
+
         if isinstance(self.strategy, QuantityToTextConverter):
             return self.strategy
 
@@ -64,7 +66,7 @@ class KPIQuantityToTextConverterResolver:
         group_converters = self._group_cache[group_id]
 
         if isinstance(group_converters, dict):
-            base_unit = str(Units.get_base_unit_for_unit(kpi.quantity.units))
+            base_unit = str(Units.get_base_unit_for_unit(kpi_group._kpis[0].quantity.units))
             return group_converters[base_unit]
         else:
             return group_converters
@@ -453,14 +455,18 @@ class KPICollectionMapVisualizer:
                     show_fg = False
 
                 fg = folium.FeatureGroup(name=group_name, overlay=overlay, show=show_fg)
+                converter = kpi_to_text_converter_resolver.get_converter_for_kpi(group_name, kpi_group)
+
+                _generators = [
+                    self._create_generator_with_updated_converters_if_needed(converter, generator)
+                    for generator in self.generators
+                ]
 
                 for kpi in kpi_group:
-                    converter = kpi_to_text_converter_resolver.get_converter_for_kpi(kpi, group_name, kpi_group)
                     data_item = KPIDataItem(kpi, kpi_collection, study_manager=self.study_manager, **self.kwargs)
-                    for generator in self.generators:
-                        gen = self._create_generator_with_converter_specific_tooltip_if_needed(converter, generator)
+                    for gen in _generators:
                         try:
-                            gen.generate(data_item, fg, value_converter=converter)
+                            gen.generate(data_item, fg)
                         except Exception as e:
                             failed.append((kpi.name, group_name, e))
 
@@ -474,7 +480,7 @@ class KPICollectionMapVisualizer:
             )
         return feature_groups
 
-    def _create_generator_with_converter_specific_tooltip_if_needed(self, converter, generator):
+    def _create_generator_with_updated_converters_if_needed(self, converter, generator):
         """Create generator copy with converter-specific mappers if needed."""
         import copy
 
@@ -492,12 +498,10 @@ class KPICollectionMapVisualizer:
         gen.feature_resolver = copy.copy(generator.feature_resolver)
         gen.feature_resolver.property_mappers = generator.feature_resolver.property_mappers.copy()
 
-        # Replace tooltip with enhanced version if needed
         if self.include_related_kpis_in_tooltip:
             gen.feature_resolver.property_mappers['tooltip'] = self._create_enhanced_tooltip_generator(converter)
 
-        # Replace text_print_content with converter-specific version if present
-        if 'text_print_content' in gen.feature_resolver.property_mappers:
+        if (self.value_formatting is not None) and ('text_print_content' in gen.feature_resolver.property_mappers):
             gen.feature_resolver.property_mappers['text_print_content'] = self._create_text_print_generator(converter)
 
         return gen
@@ -513,9 +517,34 @@ class KPICollectionMapVisualizer:
             PropertyMapper with converter baked into the closure
         """
         def get_text(data_item: VisualizableDataItem) -> str:
-            return data_item.get_text_representation(converter=converter)
+            return data_item.get_text_representation(converter)
 
         return PropertyMapper(get_text)
+
+    @staticmethod
+    def _create_default_tooltip_generator(converter: QuantityToTextConverter) -> PropertyMapper:
+        """
+        Create default tooltip generator showing data item information.
+
+        Args:
+            converter: QuantityToTextConverter to use for formatting all values
+
+        Returns:
+            PropertyMapper that generates HTML table tooltips with data item attributes
+        """
+
+        def get_tooltip(data_item: VisualizableDataItem) -> str:
+            tooltip_data = data_item.get_tooltip_data(converter=converter)
+
+            html = '<table style="border-collapse: collapse;">\n'
+            for key, value in tooltip_data.items():
+                html += f'  <tr><td style="padding: 4px 8px;"><strong>{key}</strong></td>' \
+                        f'<td style="text-align: right; padding: 4px 8px;">{value}</td></tr>\n'
+            html += '</table>'
+
+            return html
+
+        return PropertyMapper(get_tooltip)
 
     def _create_enhanced_tooltip_generator(self, converter: QuantityToTextConverter) -> PropertyMapper:
         """

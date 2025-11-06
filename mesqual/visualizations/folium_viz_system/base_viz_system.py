@@ -46,13 +46,12 @@ class PropertyMapper:
     def __init__(self, mapping: Callable[[VisualizableDataItem], Any]):
         self.mapping = mapping
 
-    def map_data_item(self, data_item: VisualizableDataItem, value_converter=None) -> Any:
+    def map_data_item(self, data_item: VisualizableDataItem) -> Any:
         """
         Map data item to property value.
 
         Args:
             data_item: Data item to map
-            value_converter: Optional converter (ignored - kept for API compatibility)
 
         Returns:
             Mapped property value
@@ -221,22 +220,21 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
 
         self.property_mappers: dict[str, PropertyMapper] = self._normalize_property_mappers(property_mappers)
 
-    def resolve_feature(self, data_item: VisualizableDataItem, value_converter=None) -> ResolvedFeatureType:
+    def resolve_feature(self, data_item: VisualizableDataItem) -> ResolvedFeatureType:
         """
         Resolve feature properties from data item.
 
         Args:
             data_item: Data item to resolve
-            value_converter: Optional QuantityToTextConverter for KPI value formatting
 
         Returns:
             Resolved feature with all computed properties
         """
         resolved = self.feature_type()
         for prop, mapper in self.property_mappers.items():
-            resolved[prop] = mapper.map_data_item(data_item, value_converter=value_converter)
+            resolved[prop] = mapper.map_data_item(data_item)
             if prop in ['tooltip', 'popup', 'text_print_content']:
-                setattr(resolved, prop, mapper.map_data_item(data_item, value_converter=value_converter))
+                setattr(resolved, prop, mapper.map_data_item(data_item))
         return resolved
 
     @staticmethod
@@ -421,14 +419,13 @@ class FoliumObjectGenerator(Generic[FeatureResolverType], ABC):
         return FeatureResolver
 
     @abstractmethod
-    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup, value_converter=None) -> None:
+    def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
         """
         Generate folium object and add it to the feature group.
 
         Args:
             data_item: Data item to visualize
             feature_group: Feature group to add to
-            value_converter: Optional QuantityToTextConverter for KPI value formatting
         """
         pass
 

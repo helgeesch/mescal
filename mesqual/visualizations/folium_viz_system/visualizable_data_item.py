@@ -7,6 +7,7 @@ import pandas as pd
 from shapely import Point, Polygon, MultiPolygon, LineString
 
 from mesqual.kpis import KPI, KPICollection
+from mesqual.units import Units
 
 if TYPE_CHECKING:
     from mesqual.units import QuantityToTextConverter
@@ -40,7 +41,7 @@ class VisualizableDataItem(ABC):
         pass
 
     @abstractmethod
-    def get_tooltip_data(self) -> dict:
+    def get_tooltip_data(self, **kwargs) -> dict:
         """Get data for tooltip display."""
         pass
 
@@ -96,7 +97,7 @@ class ModelDataItem(VisualizableDataItem):
     def get_text_representation(self) -> str:
         return self.get_name()
 
-    def get_tooltip_data(self) -> dict:
+    def get_tooltip_data(self, **kwargs) -> dict:
         data = {'ID': self.object_id}
         for col, value in self.object_data.items():
             if pd.notna(value):
@@ -167,24 +168,24 @@ class KPIDataItem(VisualizableDataItem):
         Returns:
             Formatted string representation of the KPI value
         """
-        from mesqual.units import Units, QuantityToTextConverter
 
         if converter is not None:
             return converter.convert(self.kpi.quantity)
 
-        # Default behavior: auto-select pretty unit
         q = Units.get_quantity_in_pretty_unit(self.kpi.quantity)
-        text = Units.get_pretty_text_for_quantity(q, include_unit=False)
+        text = Units.get_pretty_text_for_quantity(q)
         return text
 
-    def get_tooltip_data(self) -> dict:
+    def get_tooltip_data(self, converter: QuantityToTextConverter = None) -> dict:
         kpi_data = {
             'KPI': self.kpi.get_kpi_name_with_dataset_name(),
-            'Value': str(self.kpi.quantity),
+            'Value': self.get_text_representation(converter),
         }
         _MAX_MODEL_DATA_LEN = 3
         model_data = self._model_item.get_tooltip_data()
         model_data = dict(list(model_data.items())[:_MAX_MODEL_DATA_LEN])
+        if len(model_data) > _MAX_MODEL_DATA_LEN:
+            model_data['...'] = '...'
         return {**kpi_data, **model_data}
 
     def get_object_attribute(self, attribute: str) -> Any:
