@@ -41,11 +41,12 @@ Example Usage:
     ...     aggregation=Aggregations.Mean
     ... )
     >>>
-    >>> # Generate KPIs for a dataset
-    >>> kpis = definition.generate_kpis(dataset)
+    >>> # Generate and add KPIs to a dataset
+    >>> dataset: Dataset
+    >>> dataset.add_kpis_from_definitions(definition)
     >>>
     >>> # Add to collection
-    >>> collection = KPICollection(kpis)
+    >>> collection = dataset.kpi_collection
     >>>
     >>> # Filter and export
     >>> german_kpis = collection.filter_by_model_properties(properties={'country': 'DE'})

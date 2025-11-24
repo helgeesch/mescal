@@ -1,17 +1,3 @@
-"""
-Batch-optimized aggregations for KPI System.
-
-This module provides column-wise aggregation functions designed for batch
-computation across multiple objects. These aggregations operate on each
-column independently and return a Series with one value per column.
-
-Example:
-
-    >>> df = pd.DataFrame({'BZ_DE': [10, 20, 30], 'BZ_FR': [15, 25, 35]})
-    >>> Aggregations.Mean(df)
-        pd.Series({'BZ_DE': 20.0, 'BZ_FR': 25.0})
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,9 +16,10 @@ class Aggregation:
     Aggregation function for batch KPI computation.
 
     Unlike the old system, these aggregations:
-    - Operate on entire DataFrames
-    - Return Series with one value per column (one per object)
-    - Enable batch computation across all objects
+
+        - Operate on entire DataFrames
+        - Return Series with one value per column (one per object)
+        - Enable batch computation across all objects
 
     Attributes:
         name: Human-readable name of the aggregation
@@ -130,6 +117,7 @@ class Aggregations:
     a Series with one value per column.
 
     Example:
+
         >>> df = pd.DataFrame({'obj_1': [10, 20, 30], 'obj_2': [15, 25, 35]})
         >>> Aggregations.Mean(df)
             pd.Series({'obj_1': 20.0, 'obj_2': 25.0})

@@ -218,7 +218,7 @@ class CustomKPIDefinition(KPIDefinition):
             object_name=object_name,
             aggregation=self.aggregation,
             dataset_name=dataset.name,
-            dataset_type=str(type(dataset)),
+            dataset_type=type(dataset),
             name_prefix=self.name_prefix,
             name_suffix=self.name_suffix,
             unit=self.get_unit(),

@@ -2,7 +2,7 @@
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 ![Notebook Tests](https://github.com/helgeesch/mesqual/actions/workflows/test-with-vanilla-studies.yml/badge.svg)
 
-# <img src="docs/assets/logo-turq.svg" width="30" height="30" alt="logo"> MESQUAL 
+# <img src="https://raw.githubusercontent.com/helgeesch/mesqual/18fe3fc20bace115a116555b2872d57925698e48/assets/logo-turq.svg" width="30" height="30" alt="logo"> MESQUAL 
 **M**odular **E**nergy **S**cenario Comparison Library for **Q**uantitative and **Qual**itative Analysis
 
 A modular Python framework for energy market data analysis, with a focus on scenario comparison, KPI calculation and interactive visualizations.
@@ -32,12 +32,12 @@ To view a hands-on repository and see how the MESQUAL-suite is used in action, p
 - [mesqual-vanilla-studies](https://github.com/helgeesch/mesqual-vanilla-studies)
 - [mesqual-pypsa](https://github.com/helgeesch/mesqual-pypsa)
 - [mesqual-plexos](https://github.com/helgeesch/mesqual-plexos) (requires access)
-- [mesqual-simfa-euph](https://github.com/helgeesch/mesqual-simfa-euph) (requires access)
 
-[//]: # (- [mesqual-etp]&#40;https://github.com/helgeesch/mesqual-etp&#41; &#40;access required&#41;)
-[//]: # (- [mesqual-gui]&#40;https://github.com/helgeesch/mesqual-gui&#41; &#40;access required&#41;)
-[//]: # (- [mesqual-antares]&#40;https://github.com/helgeesch/mesqual-antares&#41; &#40;access required&#41;)
-[//]: # (- [mesqual-bid3]&#40;https://github.com/helgeesch/mesqual-bid3&#41; &#40;access required&#41;)
+[//]: # (- [mesqual-simfa-euph]&#40;https://github.com/helgeesch/mesqual-simfa-euph&#41; &#40;requires access&#41;)
+[//]: # (- [mesqual-etp]&#40;https://github.com/helgeesch/mesqual-etp&#41; &#40;requires access&#41;)
+[//]: # (- [mesqual-gui]&#40;https://github.com/helgeesch/mesqual-gui&#41; &#40;requires access&#41;)
+[//]: # (- [mesqual-antares]&#40;https://github.com/helgeesch/mesqual-antares&#41; &#40;requires access&#41;)
+[//]: # (- [mesqual-bid3]&#40;https://github.com/helgeesch/mesqual-bid3&#41; &#40;requires access&#41;)
 
 ---
 
@@ -129,7 +129,7 @@ You have two ways to pull in the core library and any interfaces:
 ### Option A: Install from Git (easy for consumers)
 ```bash
 pip install git+https://github.com/helgeesch/mesqual.git
-pip install git+https://github.com/helgeesch/mesqual-any-interface.git
+pip install git+https://github.com/path/to/any/mesqual-any-interface.git
 ```
 
 ### Option B: Local dev with submodules (for active development)

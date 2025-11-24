@@ -259,8 +259,9 @@ class KPICollection:
             Dictionary mapping attribute value tuples to KPICollections
 
         Example:
-            groups = collection.group_by('flag', 'aggregation')
-            # Returns: {('BZ.Results.market_price', Aggregations.Mean): KPICollection(...), ...}
+
+            >>> groups = collection.group_by('flag', 'aggregation')
+                {('BZ.Results.market_price', Aggregations.Mean): KPICollection(...), ...}
         """
         groups = defaultdict(list)
 

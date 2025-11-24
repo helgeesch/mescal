@@ -20,9 +20,9 @@ class ComparisonKPIDefinition(KPIDefinition):
     KPI definition for comparing values between two datasets.
 
     Creates KPIs by:
-    1. Generating base KPIs from base_definition for reference and variation datasets
-    2. Applying comparison operation to corresponding KPI values
-    3. Creating comparison KPI instances with proper metadata
+        1. Generating base KPIs from base_definition for reference and variation datasets
+        2. Applying comparison operation to corresponding KPI values
+        3. Creating comparison KPI instances with proper metadata
 
     This is typically used to compare scenarios (e.g., "Price increase in
     high_res vs base scenario").
@@ -46,11 +46,11 @@ class ComparisonKPIDefinition(KPIDefinition):
         Generate comparison KPIs from a DatasetComparison.
 
         Process:
-        1. Get reference and variation datasets from comparison dataset
-        2. Generate base KPIs for both datasets
-        3. Match KPIs by object_name
-        4. Apply comparison operation
-        5. Create comparison KPI instances
+            1. Get reference and variation datasets from comparison dataset
+            2. Generate base KPIs for both datasets
+            3. Match KPIs by object_name
+            4. Apply comparison operation
+            5. Create comparison KPI instances
 
         Args:
             dataset: DatasetComparison containing reference and variation datasets
