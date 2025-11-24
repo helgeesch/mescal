@@ -55,6 +55,8 @@ class FlagAggKPIDefinition(KPIDefinition):
         Returns:
             List of computed KPI instances
         """
+        from mesqual.kpis.builders.flag_agg_builder import ModelPropertyFilter
+
         model_flag = self.model_flag or dataset.flag_index.get_linked_model_flag(self.flag)
 
         df = dataset.fetch(self.flag)
