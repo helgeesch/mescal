@@ -394,8 +394,6 @@ class KPICollection:
 
         return common
 
-    # --- Export ---
-
     def to_dataframe(
         self,
         unit_handling: Literal['original', 'auto_convert', 'target', 'custom'] = 'original',
@@ -491,7 +489,9 @@ class KPICollection:
 
         return pd.DataFrame(data)
 
-    # --- Utilities ---
+    @property
+    def kpis(self) -> dict[str, KPI]:
+        return {kpi.name: kpi for kpi in self._kpis}
 
     def __iter__(self):
         """Iterate over KPIs in collection."""
@@ -504,6 +504,10 @@ class KPICollection:
     def __getitem__(self, index):
         """Get KPI by index."""
         return self._kpis[index]
+
+    def __contains__(self, item):
+        kpi_name = item.name
+        return any(kpi.name == kpi_name for kpi in self._kpis)
 
     @property
     def empty(self) -> bool:
