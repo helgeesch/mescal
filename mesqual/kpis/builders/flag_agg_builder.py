@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import pandas as pd
 
 from mesqual.kpis.aggregations import Aggregation
-from mesqual.units import Units
 from mesqual.kpis.definitions.flag_aggregation import FlagAggKPIDefinition
 from mesqual.kpis.builders.base import KPIBuilder
 
@@ -217,6 +216,19 @@ class FlagAggKPIBuilder(KPIBuilder[FlagAggKPIDefinition]):
             query_expr=query_expr,
             filter_funcs=filter_funcs
         )
+        return self
+
+    def for_object(self, object: Hashable) -> FlagAggKPIBuilder:
+        """
+        Specify explicit object.
+
+        Args:
+            object: object name / ID
+
+        Returns:
+            Self for chaining
+        """
+        self._objects = [object]
         return self
 
     def for_objects(self, objects: list[Hashable]) -> FlagAggKPIBuilder:
