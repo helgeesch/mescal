@@ -131,7 +131,6 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
         self._config = config
         self.dotfetch = _DotNotationFetcher(self)
 
-        # KPI system
         from mesqual.kpis.collection import KPICollection
         self.kpi_collection: KPICollection = KPICollection()
 
@@ -167,8 +166,15 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
         Args:
             kpis: Iterable of KPI instances, factories, or classes to add
         """
+        duplicates = []
         for kpi in kpis:
-            self.add_kpi(kpi)
+            if kpi in self.kpi_collection:
+                duplicates.append(kpi)
+            else:
+                self.add_kpi(kpi)
+        if duplicates:
+            _num_duplicates = len(duplicates)
+            logger.warning(f'{_num_duplicates} duplicates found and not added again or overwritten in {self.name}. ({duplicates[:3]}...)')
 
     def add_kpi(self, kpi: KPI):
         """
