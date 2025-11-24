@@ -3,7 +3,7 @@
 ![Notebook Tests](https://github.com/helgeesch/mesqual/actions/workflows/test-with-vanilla-studies.yml/badge.svg)
 
 # <img src="https://raw.githubusercontent.com/helgeesch/mesqual/18fe3fc20bace115a116555b2872d57925698e48/assets/logo-turq.svg" width="30" height="30" alt="logo"> MESQUAL 
-**M**odular **E**nergy **S**cenario Comparison Library for **Q**uantitative and **Qual**itative Analysis
+**M**odular **E**nergy **S**cenario Comparison Library for **Qu**antitative and **Qu**alitative An**al**ysis
 
 A modular Python framework for energy market data analysis, with a focus on scenario comparison, KPI calculation and interactive visualizations.
 
