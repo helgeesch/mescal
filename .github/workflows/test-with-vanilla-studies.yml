@@ -35,7 +35,6 @@ jobs:
         pip install --upgrade pip
         pip install git+https://github.com/helgeesch/mesqual@${COMMIT_SHA}
         pip install git+https://github.com/helgeesch/mesqual-pypsa
-        pip install git+https://github.com/helgeesch/captain-arro
 
     - name: Install other requirements
       run: |
