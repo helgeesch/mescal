@@ -386,7 +386,7 @@ class KPICollectionMapVisualizer:
             study_manager: 'StudyManager' = None,
             include_related_kpis_in_tooltip: bool = False,
             kpi_grouping_manager: KPIGroupingManager = None,
-            value_formatting: VALUE_FORMATTING_OPTIONS = 'per_feature_group',
+            value_formatting: VALUE_FORMATTING_OPTIONS = None,
             **kwargs
     ):
         self.generators: List[FoliumObjectGenerator] = generators if isinstance(generators, list) else [generators]
