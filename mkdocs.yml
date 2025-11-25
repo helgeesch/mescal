@@ -87,8 +87,7 @@ nav:
           - Abstract System: api_reference/visualization/folium_viz_system/system.md
           - Data Item: api_reference/visualization/folium_viz_system/data_item.md
         - KPI Collection Visualizer: api_reference/visualization/folium_viz_system/kpi_collection.md
-      - Folium Legend System:
-        - api_reference/visualization/folium_legend_system/index.md
+        - Legends: api_reference/visualization/folium_viz_system/legends.md
       - HTML Table: api_reference/visualization/html_table.md
       - HTML Dashboard: api_reference/visualization/html_dashboard.md
   - Energy Data Handling:

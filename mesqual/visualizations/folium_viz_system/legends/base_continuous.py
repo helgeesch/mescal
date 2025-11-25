@@ -4,7 +4,7 @@ from typing import Generic
 import numpy as np
 
 from mesqual.typevars import ContinuousMappingType
-from mesqual.visualizations.folium_legend_system.base import BaseLegend
+from mesqual.visualizations.folium_viz_system.legends.base import BaseLegend
 
 
 class ContinuousLegendBase(Generic[ContinuousMappingType], BaseLegend[ContinuousMappingType]):

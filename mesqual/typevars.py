@@ -3,20 +3,7 @@ from typing import TypeVar, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from mesqual.flag.flag import FlagTypeProtocol
-    from mesqual.datasets.dataset import Dataset
-    from mesqual.datasets.dataset_config import DatasetConfig
-    from mesqual.flag.flag_index import FlagIndex
-    from mesqual.kpis.kpi import KPI
-    from mesqual.kpis.aggregations import OperationOfTwoValues
-    from mesqual.kpis.definitions.base import KPIDefinition
-    from mesqual.kpis.collection import KPICollection
-    from mesqual.visualizations.folium_viz_system.base_viz_system import ResolvedFeature, FeatureResolver
-    from mesqual.visualizations.value_mapping_system.base import BaseMapping
-    from mesqual.visualizations.value_mapping_system.discrete import DiscreteInputMapping
-    from mesqual.visualizations.value_mapping_system.continuous import SegmentedContinuousInputMappingBase
-    from mesqual.visualizations.folium_legend_system.base import BaseLegend
-
+    pass
 
 FlagType = TypeVar('FlagType', bound='FlagTypeProtocol')
 DatasetType = TypeVar('DatasetType', bound='Dataset')
