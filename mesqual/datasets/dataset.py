@@ -407,7 +407,12 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
         from mesqual.utils import pandas_utils
 
         data = self.fetch(flag, config, **kwargs)
-        model_df = self.fetch(model_flag, config, **kwargs)
+        from mesqual.datasets import DatasetCollection
+        if isinstance(self, DatasetCollection):
+            # TODO: implement MultiIndex capabilities into filter_by_model_query / prepend_model_prop_levels, then fetch_merged is not needed
+            model_df = self.fetch_merged(model_flag, config, **kwargs)
+        else:
+            model_df = self.fetch(model_flag, config, **kwargs)
 
         if model_filter_query:
             data = pandas_utils.filter_by_model_query(data, model_df, query=model_filter_query)
