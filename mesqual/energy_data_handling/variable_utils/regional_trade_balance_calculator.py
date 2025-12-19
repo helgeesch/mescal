@@ -164,6 +164,9 @@ class RegionalTradeBalanceCalculator:
 
         return trade_balance_df.T.groupby(level=[self.primary_name, "variable"]).sum().T
 
+    def get_net_position_per_primary_level(self, trade_balance_df: pd.DataFrame) -> pd.DataFrame:
+        return self.aggregate_trade_balance_to_primary_level(trade_balance_df).xs(self.NET_EXP_VAR, level=-1, axis=1)
+
 
 if __name__ == "__main__":
     import numpy as np
