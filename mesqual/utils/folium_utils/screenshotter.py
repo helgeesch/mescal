@@ -12,6 +12,14 @@ import time
 
 @dataclass
 class ScreenConfig:
+    """Configuration for the virtual browser viewport.
+
+    Attributes:
+        width: Viewport width in CSS pixels.
+        height: Viewport height in CSS pixels.
+        device_pixel_ratio: Scale factor for high-DPI rendering.
+            A value of 2.0 produces 2x resolution output (e.g., 1920x1080 viewport -> 3840x2160 pixels).
+    """
     width: int = 1920
     height: int = 1080
     device_pixel_ratio: float = 1.0
@@ -19,12 +27,32 @@ class ScreenConfig:
 
 @dataclass
 class FrameConfig:
+    """Configuration for the screenshot crop frame.
+
+    The frame is centered on the screen by default. Use offsets to shift the crop area.
+
+    Attributes:
+        width: Frame width in CSS pixels.
+        height: Frame height in CSS pixels.
+        offset_center_x: Horizontal offset from screen center. Positive values shift right.
+        offset_center_y: Vertical offset from screen center. Positive values shift down.
+    """
     width: int
     height: int
     offset_center_x: int = 0
     offset_center_y: int = 0
 
     def to_crop_box(self, image_width: int, image_height: int, dpr: float) -> tuple[int, int, int, int]:
+        """Convert frame config to PIL crop box coordinates.
+
+        Args:
+            image_width: Actual screenshot width in pixels.
+            image_height: Actual screenshot height in pixels.
+            dpr: Device pixel ratio for scaling.
+
+        Returns:
+            Tuple of (left, top, right, bottom) pixel coordinates.
+        """
         center_x = image_width // 2 + int(self.offset_center_x * dpr)
         center_y = image_height // 2 + int(self.offset_center_y * dpr)
         scaled_width = int(self.width * dpr)
@@ -38,6 +66,13 @@ class FrameConfig:
 
 @dataclass
 class MapViewConfig:
+    """Configuration for the Leaflet map view.
+
+    Attributes:
+        center_lat: Latitude of map center.
+        center_lng: Longitude of map center.
+        zoom: Map zoom level. Supports fractional values (e.g., 4.5).
+    """
     center_lat: float | None = None
     center_lng: float | None = None
     zoom: float | None = None
@@ -45,6 +80,14 @@ class MapViewConfig:
 
 @dataclass
 class LegendInfo:
+    """Information about a detected legend element.
+
+    Attributes:
+        element_id: DOM element ID of the legend.
+        title: Legend title text, if present.
+        width: Legend width in CSS pixels.
+        height: Legend height in CSS pixels.
+    """
     element_id: str
     title: str | None
     width: int
@@ -52,6 +95,35 @@ class LegendInfo:
 
 
 class FoliumScreenshotter:
+    """Automated screenshot capture for Folium HTML maps.
+
+    Uses headless Chrome via Selenium to render Folium maps and capture screenshots
+    of map layers and legends. Supports high-DPI rendering, custom crop frames,
+    and automatic detection of base layers and legend elements.
+
+    Args:
+        html_path: Path to the Folium-generated HTML file.
+        screen_config: Virtual browser viewport configuration.
+        frame_config: Screenshot crop frame configuration. If None, captures full viewport.
+        map_view_config: Leaflet map view settings (center, zoom).
+
+    Example:
+
+        >>> screenshotter = FoliumScreenshotter(
+        ...     "map.html",
+        ...     screen_config=ScreenConfig(1920, 1080, 2.0),
+        ...     frame_config=FrameConfig(800, 600),
+        ...     map_view_config=MapViewConfig(52.52, 13.405, 10),
+        ... )
+        >>>
+        >>> # Capture all base layers
+        >>> screenshotter.capture_all_base_layers("output/layers")
+        >>>
+        >>> # Capture legends separately
+        >>> screenshotter.capture_legends("output/legends")
+
+    """
+
     def __init__(
             self,
             html_path: str | Path,
@@ -264,9 +336,7 @@ class FoliumScreenshotter:
 
     def _take_element_screenshot(self, element_id: str, output_path: Path) -> None:
         self._hide_layer_control()
-        # Don't hide legends here - we want to capture them!
 
-        # Hide OTHER legends, keep target visible
         self._driver.execute_script("""
             let targetId = arguments[0];
             document.querySelectorAll('[id*="Legend_"]').forEach(el => {
@@ -313,14 +383,50 @@ class FoliumScreenshotter:
             offset_center_x: int = 0,
             offset_center_y: int = 0
     ) -> "FoliumScreenshotter":
+        """Set the screenshot crop frame.
+
+        Args:
+            width: Frame width in CSS pixels.
+            height: Frame height in CSS pixels.
+            offset_center_x: Horizontal offset from screen center.
+            offset_center_y: Vertical offset from screen center.
+
+        Returns:
+            Self for method chaining.
+        """
         self._frame_config = FrameConfig(width, height, offset_center_x, offset_center_y)
         return self
 
     def set_map_view(self, lat: float, lng: float, zoom: float | None = None) -> "FoliumScreenshotter":
+        """Set the map view center and zoom level.
+
+        Args:
+            lat: Center latitude.
+            lng: Center longitude.
+            zoom: Zoom level. Supports fractional values.
+
+        Returns:
+            Self for method chaining.
+        """
         self._map_view_config = MapViewConfig(lat, lng, zoom)
         return self
 
     def capture_all_base_layers(self, output_dir: str | Path) -> list[Path]:
+        """Capture screenshots of all base layers (overlay=False feature groups).
+
+        Iterates through each base layer in the Leaflet layer control,
+        selects it, and takes a screenshot. UI elements (layer control, legends)
+        are hidden during capture.
+
+        Args:
+            output_dir: Directory to save screenshots. Created if it doesn't exist.
+
+        Returns:
+            List of paths to saved screenshot files.
+
+        Raises:
+            RuntimeError: If no Leaflet map object is found in the HTML.
+        """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         saved_files = []
@@ -353,6 +459,17 @@ class FoliumScreenshotter:
             self._stop_browser()
 
     def capture_single_view(self, output_path: str | Path) -> Path:
+        """Capture a single screenshot of the current map view.
+
+        Takes a screenshot with the currently active base layer.
+        UI elements (layer control, legends) are hidden during capture.
+
+        Args:
+            output_path: Path for the output PNG file.
+
+        Returns:
+            Path to the saved screenshot file.
+        """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -370,6 +487,18 @@ class FoliumScreenshotter:
             self._stop_browser()
 
     def capture_legends(self, output_dir: str | Path) -> dict[str, Path]:
+        """Capture screenshots of all detected legend elements.
+
+        Detects legends by ID pattern (`*Legend_*`) or by structure
+        (position:fixed elements containing `.legend-content`).
+        Each legend is captured individually with other legends hidden.
+
+        Args:
+            output_dir: Directory to save legend screenshots.
+
+        Returns:
+            Dictionary mapping legend names (title or element ID) to file paths.
+        """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         saved_files = {}
@@ -397,6 +526,24 @@ class FoliumScreenshotter:
             self._stop_browser()
 
     def capture_all(self, output_dir: str | Path) -> dict[str, list[Path] | dict[str, Path]]:
+        """Capture screenshots of all base layers and legends.
+
+        Convenience method that captures everything in a single browser session.
+        Outputs are organized into subdirectories: `layers/` for base layer
+        screenshots and `legends/` for legend screenshots.
+
+        Args:
+            output_dir: Root directory for output. Subdirectories are created automatically.
+
+        Returns:
+            Dictionary with keys:
+
+            - `base_layers`: List of paths to layer screenshots.
+            - `legends`: Dictionary mapping legend names to file paths.
+
+        Raises:
+            RuntimeError: If no Leaflet map object is found in the HTML.
+        """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -415,7 +562,6 @@ class FoliumScreenshotter:
 
             self._set_view(map_name)
 
-            # Capture legends first (they're the same across base layers)
             legends = self._detect_legends()
             legends_dir = output_dir / "legends"
             legends_dir.mkdir(exist_ok=True)
@@ -428,7 +574,6 @@ class FoliumScreenshotter:
                 results["legends"][name] = output_path
                 print(f"Saved legend: {output_path}")
 
-            # Capture base layers
             base_layers = self._get_base_layers()
             layers_dir = output_dir / "layers"
             layers_dir.mkdir(exist_ok=True)
@@ -514,11 +659,9 @@ if __name__ == "__main__":
         map_view_config=MapViewConfig(52, 13, 6),
     )
 
-    # Capture just legends
     legends = screenshotter.capture_legends("screenshots/legends_only")
     print(f"\nCaptured {len(legends)} legends")
 
-    # Or capture everything at once
     screenshotter2 = FoliumScreenshotter(
         html_path,
         screen_config=ScreenConfig(1920, 1080, 2.0),
