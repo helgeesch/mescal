@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 from shapely import Point, Polygon, MultiPolygon, LineString
 
 from mesqual.kpis import KPI, KPICollection
+from mesqual.units import Units
+
+if TYPE_CHECKING:
+    from mesqual.units import QuantityToTextConverter
 
 
 class VisualizableDataItem(ABC):
@@ -35,7 +41,7 @@ class VisualizableDataItem(ABC):
         pass
 
     @abstractmethod
-    def get_tooltip_data(self) -> dict:
+    def get_tooltip_data(self, **kwargs) -> dict:
         """Get data for tooltip display."""
         pass
 
@@ -91,7 +97,7 @@ class ModelDataItem(VisualizableDataItem):
     def get_text_representation(self) -> str:
         return self.get_name()
 
-    def get_tooltip_data(self) -> dict:
+    def get_tooltip_data(self, **kwargs) -> dict:
         data = {'ID': self.object_id}
         for col, value in self.object_data.items():
             if pd.notna(value):
@@ -145,28 +151,41 @@ class KPIDataItem(VisualizableDataItem):
     def __init__(self, kpi: KPI, kpi_collection: KPICollection = None, **kwargs):
         self.kpi = kpi
         self.kpi_collection = kpi_collection
-        self._object_info = kpi.get_attributed_object_info_from_model()
+        self._object_info = kpi.get_object_info_from_model()
         self._model_item = ModelDataItem(self._object_info)
         super().__init__(**kwargs)
 
     def get_name(self) -> str:
         return str(self.kpi.name)
 
-    def get_text_representation(self) -> str:
+    def get_text_representation(self, converter: QuantityToTextConverter = None) -> str:
         """
         Get formatted text representation of the KPI value.
-        
+
+        Args:
+            converter: Optional QuantityToTextConverter for custom formatting
+
         Returns:
             Formatted string representation of the KPI value
         """
-        return f"{self.kpi.value:.1f}"  # TODO: use pretty formatting and quantities etc.
 
-    def get_tooltip_data(self) -> dict:
+        if converter is not None:
+            return converter.convert(self.kpi.quantity)
+
+        q = Units.get_quantity_in_pretty_unit(self.kpi.quantity)
+        text = Units.get_pretty_text_for_quantity(q)
+        return text
+
+    def get_tooltip_data(self, converter: QuantityToTextConverter = None) -> dict:
         kpi_data = {
             'KPI': self.kpi.get_kpi_name_with_dataset_name(),
-            'Value': str(self.kpi.quantity),
+            'Value': self.get_text_representation(converter),
         }
+        _MAX_MODEL_DATA_LEN = 3
         model_data = self._model_item.get_tooltip_data()
+        model_data = dict(list(model_data.items())[:_MAX_MODEL_DATA_LEN])
+        if len(model_data) > _MAX_MODEL_DATA_LEN:
+            model_data['...'] = '...'
         return {**kpi_data, **model_data}
 
     def get_object_attribute(self, attribute: str) -> Any:

@@ -11,7 +11,7 @@ from mesqual.datasets.dataset import Dataset
 from mesqual.datasets.dataset_comparison import DatasetComparison
 from mesqual.typevars import FlagType, DatasetType, ValueOperationType, KPIType
 from mesqual.units import Units
-from mesqual.kpis.aggs import (
+from mesqual._kpis_deprecated.aggs import (
     ValueComparison, ValueComparisons,
     ArithmeticValueOperation, ArithmeticValueOperations,
     Aggregation

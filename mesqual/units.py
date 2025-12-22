@@ -1,6 +1,7 @@
 from typing import Iterator, ClassVar
 import numpy as np
-from pint import get_application_registry, UnitRegistry, set_application_registry, Unit, Quantity
+from pint import UnitRegistry, Unit, Quantity
+from math import log10, ceil
 
 from mesqual.enums import QuantityTypeEnum
 
@@ -193,6 +194,88 @@ class Units(metaclass=_IterableUnitsMeta):
         return quantity.to(units[-1])
 
     @classmethod
+    def get_common_pretty_unit_for_quantities(cls, quantities: list[Quantity]) -> Unit:
+        """
+        Find common "pretty" unit for a collection of quantities.
+
+        Strategy:
+        1. Verify all quantities have same dimensionality
+        2. Convert all quantities to all available units
+        3. Select unit with most values having abs(magnitude) < 10,000
+        4. If tie, select unit giving largest magnitudes (avoid tiny decimals)
+
+        Args:
+            quantities: List of quantities with same dimensionality
+
+        Returns:
+            Pretty unit that works well for the collection
+
+        Raises:
+            ValueError: If quantities have different dimensionalities or list is empty
+
+        Examples:
+
+            >>> quantities = [1_000_000 * Units.EUR, 5_000_000 * Units.EUR]
+            >>> Units.get_common_pretty_unit_for_quantities(quantities)
+                Units.MEUR
+
+            >>> quantities = [0.03 * Units.EUR_per_MWh, -0.02 * Units.EUR_per_MWh, 0.01 * Units.EUR_per_MWh]
+            >>> Units.get_common_pretty_unit_for_quantities(quantities)
+                Units.EUR/Units.MWh  # Not EUR/Wh which would give tiny values
+        """
+        if not quantities:
+            raise ValueError("Cannot find common unit for empty list of quantities")
+
+        # Verify all quantities have same dimensionality
+        base_unit = cls.get_base_unit_for_unit(quantities[0].units)
+        for q in quantities[1:]:
+            if not cls.units_have_same_base(q.units, base_unit):
+                raise ValueError(
+                    f"All quantities must have same dimensionality. "
+                    f"Found {q.units} which differs from {base_unit}"
+                )
+
+        # Handle all-zero case
+        non_zero_quantities = [q for q in quantities if abs(q.magnitude) > 0]
+        if not non_zero_quantities:
+            # All values are zero, return common unit if all same, else base unit
+            if len(set([q.units for q in quantities])) == 1:
+                return quantities[0].units
+            return base_unit
+
+        # Get all available units for this dimensionality
+        available_units = cls.get_all_units_with_equal_base(base_unit)
+        if not available_units:
+            # return common unit if all same, else base unit
+            if len(set([q.units for q in quantities])) == 1:
+                return quantities[0].units
+            return base_unit
+
+        # Evaluate each unit
+        best_unit = base_unit
+        best_count_under_10k = -1
+        best_median_magnitude = -1
+
+        for unit in available_units:
+            # Convert all quantities to this unit
+            magnitudes = [abs(q.to(unit).magnitude) for q in non_zero_quantities]
+
+            # Count how many values are under 10,000
+            count_under_10k = sum(1 for m in magnitudes if m < 10_000)
+
+            # Get median magnitude for tie-breaking
+            median_magnitude = np.median(magnitudes)
+
+            # Update best if this unit is better
+            if (count_under_10k > best_count_under_10k or
+                (count_under_10k == best_count_under_10k and median_magnitude > best_median_magnitude)):
+                best_unit = unit
+                best_count_under_10k = count_under_10k
+                best_median_magnitude = median_magnitude
+
+        return best_unit
+
+    @classmethod
     def get_all_units_with_equal_base(cls, unit: Unit) -> list[Unit]:
         return [u for u in Units if cls.units_have_same_base(unit, u)]
 
@@ -207,7 +290,7 @@ class Units(metaclass=_IterableUnitsMeta):
             include_sign: bool = None,
     ) -> str:
         if decimals is None:
-            decimals = cls._get_pretty_decimals(quantity)
+            decimals = cls.get_pretty_decimals(quantity)
         if thousands_separator is None:
             thousands_separator = ''
 
@@ -260,7 +343,7 @@ class Units(metaclass=_IterableUnitsMeta):
         raise Exception(f'How did you end up here for value {quantity}')
 
     @classmethod
-    def _get_pretty_decimals(cls, quantity: Quantity) -> int:
+    def get_pretty_decimals(cls, quantity: Quantity) -> int:
 
         # if quantity.units == Units.per_unit:
         #     return 3
@@ -277,6 +360,8 @@ class Units(metaclass=_IterableUnitsMeta):
             return 2
         elif abs_value > 0.01:
             return 3
+        elif abs_value == 0:
+            return 0
         else:
             return 5
 
@@ -284,6 +369,157 @@ class Units(metaclass=_IterableUnitsMeta):
     def _get_units_oom_prefix(cls, unit: Unit) -> str:
         base_unit = cls.get_base_unit_for_unit(unit)
         return str(unit).replace(str(base_unit), '')
+
+
+class QuantityToTextConverter:
+    """
+    Configurable converter for formatting Quantity objects as text strings.
+
+    Stores formatting configuration that can be reused across multiple quantity
+    conversions, enabling consistent formatting across KPI collections and visualizations.
+
+    Args:
+        target_unit: Target unit for conversion (if None, uses pretty unit selection)
+        decimals: Number of decimal places (if None, auto-determined)
+        thousands_separator: Separator for thousands (default: '')
+        include_unit: Whether to include unit in output (default: True)
+        include_oom: Whether to include order of magnitude prefix (default: True)
+        include_sign: Whether to include + sign for positive values (default: None/auto)
+
+    Examples:
+        Basic usage with fixed configuration:
+        >>> converter = QuantityToTextConverter(
+        ...     target_unit=Units.MWh,
+        ...     decimals=2,
+        ...     thousands_separator=' '
+        ... )
+        >>> converter.convert(5432.1 * Units.kWh)
+        '5.43 MWh'
+
+        Auto-configure from collection of quantities:
+        >>> quantities = [1000 * Units.EUR, 5000 * Units.EUR, 10000 * Units.EUR]
+        >>> converter = QuantityToTextConverter.from_quantities(quantities, decimals=0)
+        >>> [converter.convert(q) for q in quantities]
+        ['1 kEUR', '5 kEUR', '10 kEUR']
+    """
+
+    def __init__(
+        self,
+        target_unit: Unit = None,
+        decimals: int = None,
+        thousands_separator: str = None,
+        include_unit: bool = True,
+        include_oom: bool = True,
+        include_sign: bool = None,
+    ):
+        self.target_unit = target_unit
+        self.decimals = decimals
+        self.thousands_separator = thousands_separator or ''
+        self.include_unit = include_unit
+        self.include_oom = include_oom
+        self.include_sign = include_sign
+
+    def convert(self, quantity: Quantity) -> str:
+        """
+        Convert a Quantity to formatted text string using stored configuration.
+
+        Args:
+            quantity: The quantity to format
+
+        Returns:
+            Formatted text representation
+        """
+        # Apply target unit conversion if specified
+        if self.target_unit is not None:
+            quantity = Units.get_quantity_in_target_unit(quantity, self.target_unit)
+        else:
+            quantity = Units.get_quantity_in_pretty_unit(quantity)
+
+        # Use Units.get_pretty_text_for_quantity with stored configuration
+        return Units.get_pretty_text_for_quantity(
+            quantity,
+            decimals=self.decimals,
+            thousands_separator=self.thousands_separator,
+            include_unit=self.include_unit,
+            include_oom=self.include_oom,
+            include_sign=self.include_sign,
+        )
+
+    @classmethod
+    def from_quantities(
+        cls,
+        quantities: list[Quantity],
+        target_unit: Unit = None,
+        decimals: int = None,
+        thousands_separator: str = None,
+        include_unit: bool = True,
+        include_oom: bool = True,
+        include_sign: bool = None,
+    ) -> 'QuantityToTextConverter':
+        """
+        Create converter auto-configured for a collection of quantities.
+
+        Analyzes the provided quantities to determine an appropriate common unit
+        (if target_unit not specified) that works well for all values.
+
+        Args:
+            quantities: Collection of quantities to analyze
+            target_unit: Override auto-selected unit with specific target
+            decimals: Number of decimal places (if None, will be auto-determined per value)
+            thousands_separator: Separator for thousands (default: '')
+            include_unit: Whether to include unit in output (default: True)
+            include_oom: Whether to include order of magnitude prefix (default: True)
+            include_sign: Whether to include + sign for positive values (default: None/auto)
+
+        Returns:
+            Configured QuantityToTextConverter instance
+
+        Examples:
+
+            Auto-configure for price data:
+            >>> prices = [45.2 * Units.EUR_per_MWh, 67.8 * Units.EUR_per_MWh]
+            >>> converter = QuantityToTextConverter.from_quantities(prices, thousands_separator=' ')
+            >>> converter.convert(prices[0])
+                '45.20 €/MWh'
+        """
+        # Determine common pretty unit if not explicitly provided
+        if target_unit is None and quantities:
+            target_unit = Units.get_common_pretty_unit_for_quantities(quantities)
+
+        if decimals is None:
+            decimals = cls._pretty_decimal_precision([q.magnitude for q in quantities])
+
+        return cls(
+            target_unit=target_unit,
+            decimals=decimals,
+            thousands_separator=thousands_separator,
+            include_unit=include_unit,
+            include_oom=include_oom,
+            include_sign=include_sign,
+        )
+
+    @staticmethod
+    def _pretty_decimal_precision(values):
+        """Determine minimal decimal places to differentiate values,
+        with special rule: any |value| < 0.1 -> at least 2 decimals."""
+        if len(values) <= 1:
+            return None
+
+        sorted_vals = np.sort(values)
+        diffs = np.diff(sorted_vals)
+        non_zero_diffs = diffs[diffs > 0]
+
+        if len(non_zero_diffs) == 0:
+            return None  # all values identical
+
+        median_diff = np.median(non_zero_diffs)
+        decimals = max(0, ceil(-log10(median_diff)))
+
+        # Apply special rule for small absolute values
+        if np.any(np.abs(values) < 0.1):
+            decimals = max(decimals, 2)
+
+        return decimals
 
 
 if __name__ == '__main__':

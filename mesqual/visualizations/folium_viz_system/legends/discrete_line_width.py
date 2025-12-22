@@ -1,4 +1,4 @@
-from mesqual.visualizations.folium_legend_system.base_discrete import DiscreteLegendBase
+from mesqual.visualizations.folium_viz_system.legends.base_discrete import DiscreteLegendBase
 from mesqual.visualizations.value_mapping_system.discrete import DiscreteLineWidthMapping
 
 

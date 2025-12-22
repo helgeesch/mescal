@@ -1,0 +1,1 @@
+::: mesqual.kpis.collection.KPICollection

@@ -7,14 +7,14 @@ import pandas as pd
 
 from mesqual.typevars import DatasetConfigType, FlagType, FlagIndexType
 from mesqual.databases.database import Database
-from mesqual.utils.string_conventions import to_lower_snake
 from mesqual.flag.flag_index import EmptyFlagIndex
 from mesqual.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from mesqual.datasets.dataset_collection import DatasetLinkCollection
-    from mesqual.kpis.kpi_collection import KPICollection
-    from mesqual.kpis.kpi_base import KPI, KPIFactory
+    from mesqual.kpis.kpi import KPI
+    from mesqual.kpis.definitions.base import KPIDefinition
+    from mesqual.kpis.collection import KPICollection
 
 logger = get_logger(__name__)
 
@@ -131,7 +131,7 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
         self._config = config
         self.dotfetch = _DotNotationFetcher(self)
 
-        from mesqual.kpis.kpi_collection import KPICollection
+        from mesqual.kpis.collection import KPICollection
         self.kpi_collection: KPICollection = KPICollection()
 
     @property
@@ -149,36 +149,45 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     def database(self) -> Database | None:
         return self._database
 
-    def add_kpis(self, kpis: Iterable[KPI | KPIFactory | Type[KPI]]):
+    def add_kpis_from_definitions(self, kpi_definitions: KPIDefinition | list[KPIDefinition]):
+        from mesqual.kpis.definitions.base import KPIDefinition
+        if isinstance(kpi_definitions, KPIDefinition):
+            kpis = kpi_definitions.generate_kpis(self)
+            self.add_kpis(kpis)
+        else:
+            for kpi_def in kpi_definitions:
+                kpis = kpi_def.generate_kpis(self)
+                self.add_kpis(kpis)
+
+    def add_kpis(self, kpis: Iterable[KPI]):
         """
         Add multiple KPIs to this dataset's KPI collection.
         
         Args:
             kpis: Iterable of KPI instances, factories, or classes to add
         """
+        duplicates = []
         for kpi in kpis:
-            self.add_kpi(kpi)
+            if kpi in self.kpi_collection:
+                duplicates.append(kpi)
+            else:
+                self.add_kpi(kpi)
+        if duplicates:
+            _num_duplicates = len(duplicates)
+            logger.warning(f'{_num_duplicates} duplicates found and not added again or overwritten in {self.name}. ({duplicates[:3]}...)')
 
-    def add_kpi(self, kpi: KPI | KPIFactory | Type[KPI]):
+    def add_kpi(self, kpi: KPI):
         """
         Add a single KPI to this dataset's KPI collection.
-        
-        Automatically handles different KPI input types by converting factories
-        and classes to KPI instances.
         
         Args:
             kpi: KPI instance, factory, or class to add
         """
-        from mesqual.kpis.kpi_base import KPI
-        from mesqual.kpis.kpis_from_aggregations import KPIFactory
-        if isinstance(kpi, KPIFactory):
-            kpi = kpi.get_kpi(self)
-        elif isinstance(kpi, type) and issubclass(kpi, KPI):
-            kpi = kpi.from_factory(self)
-        self.kpi_collection.add_kpi(kpi)
+        self.kpi_collection.add(kpi)
 
     def clear_kpi_collection(self):
-        from mesqual.kpis import KPICollection
+        """Clear the KPI collection."""
+        from mesqual.kpis.collection import KPICollection
         self.kpi_collection = KPICollection()
 
     @property
@@ -448,10 +457,6 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     def set_class_config(cls, config: DatasetConfigType) -> None:
         from mesqual.datasets.dataset_config import DatasetConfigManager
         DatasetConfigManager.set_class_config(cls, config)
-
-    @classmethod
-    def _get_class_name_lower_snake(cls) -> str:
-        return to_lower_snake(cls.__name__)
 
     def __str__(self) -> str:
         return self.name

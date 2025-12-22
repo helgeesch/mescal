@@ -6,7 +6,7 @@ import folium
 
 
 class MapCountryPlotter:
-    GEOJSON_ID_COLUMNS = ['ISO_A2', 'ISO_A3', 'SOV_A3']
+    GEOJSON_ID_COLUMNS = ['ISO_A2', 'ISO_A3', 'SOV_A3', 'FIPS_10_']
     DEFAULT_STYLE = {
         'fillColor': '#C2C2C2',
         'color': 'white',

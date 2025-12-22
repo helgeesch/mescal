@@ -36,6 +36,8 @@ from .viz_line_text_overlay import ResolvedLineTextOverlayFeature, LineTextOverl
 from .viz_lines import ResolvedLineFeature, LineFeatureResolver, LineGenerator
 from .viz_text_overlay import ResolvedTextOverlayFeature, TextOverlayFeatureResolver, TextOverlayGenerator
 
+from . import legends
+
 __all__ = [
     # Base visualization components
     "PropertyMapper",
@@ -78,4 +80,6 @@ __all__ = [
     "ResolvedTextOverlayFeature",
     "TextOverlayFeatureResolver",
     "TextOverlayGenerator",
+
+    "legends"
 ]

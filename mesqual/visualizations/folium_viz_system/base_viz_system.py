@@ -47,6 +47,15 @@ class PropertyMapper:
         self.mapping = mapping
 
     def map_data_item(self, data_item: VisualizableDataItem) -> Any:
+        """
+        Map data item to property value.
+
+        Args:
+            data_item: Data item to map
+
+        Returns:
+            Mapped property value
+        """
         return self.mapping(data_item)
 
     @classmethod
@@ -191,7 +200,11 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         ... )
         >>> resolved = resolver.resolve_feature(kpi_data_item)
     """
-    def __init__(self, feature_type: Type[ResolvedFeatureType] = None, **property_mappers: PropertyMapper | Any):
+    def __init__(
+        self,
+        feature_type: Type[ResolvedFeatureType] = None,
+        **property_mappers: PropertyMapper | Any
+    ):
         self.feature_type: Type[ResolvedFeatureType] = feature_type or ResolvedFeatureType.__constraints__[0]
 
         _defaults_if_true = dict(
@@ -199,15 +212,24 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
             popup=self._default_popup_generator,
             text_print_content=self._default_text_print_generator,
         )
-        for k, mapper in _defaults_if_true.items():
+        for k, mapper_factory in _defaults_if_true.items():
             if property_mappers.get(k, None) is True:
-                property_mappers[k] = mapper()
+                property_mappers[k] = mapper_factory()
             elif property_mappers.get(k, None) is False:
                 property_mappers[k] = None
 
         self.property_mappers: dict[str, PropertyMapper] = self._normalize_property_mappers(property_mappers)
 
     def resolve_feature(self, data_item: VisualizableDataItem) -> ResolvedFeatureType:
+        """
+        Resolve feature properties from data item.
+
+        Args:
+            data_item: Data item to resolve
+
+        Returns:
+            Resolved feature with all computed properties
+        """
         resolved = self.feature_type()
         for prop, mapper in self.property_mappers.items():
             resolved[prop] = mapper.map_data_item(data_item)
@@ -280,7 +302,10 @@ class FeatureResolver(Generic[ResolvedFeatureType]):
         Returns:
             PropertyMapper that returns data item text representation
         """
-        return PropertyMapper(lambda d: d.get_text_representation())
+        def get_text(data_item: VisualizableDataItem) -> str:
+            return data_item.get_text_representation()
+
+        return PropertyMapper(get_text)
 
     @staticmethod
     def _default_geometry_mapper() -> PropertyMapper:
@@ -395,7 +420,13 @@ class FoliumObjectGenerator(Generic[FeatureResolverType], ABC):
 
     @abstractmethod
     def generate(self, data_item: VisualizableDataItem, feature_group: folium.FeatureGroup) -> None:
-        """Generate folium object and add it to the feature group."""
+        """
+        Generate folium object and add it to the feature group.
+
+        Args:
+            data_item: Data item to visualize
+            feature_group: Feature group to add to
+        """
         pass
 
     def generate_objects_for_model_df(

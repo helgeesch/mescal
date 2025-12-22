@@ -354,6 +354,8 @@ class StringMembershipPairsAppender(BaseMembershipPairsAppender):
         Returns:
             Series with alphabetically sorted string combinations (bidirectional)
         """
+        if a.empty and b.empty:
+            return pd.Series()
         return pd.DataFrame({
             'a': a.astype(str),
             'b': b.astype(str)

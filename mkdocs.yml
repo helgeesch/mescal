@@ -5,6 +5,7 @@ repo_url: 'https://github.com/helgeesch/mesqual/'
 
 theme:
   name: material
+  logo: assets/logo-white.svg
   palette:
     primary: 'teal'
     accent: 'amber'
@@ -26,7 +27,6 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [submodules, mesqual]
           options:
             heading_level: 2
             show_root_heading: true
@@ -54,6 +54,24 @@ nav:
     - Units: api_reference/units.md
     - Validation: api_reference/validation.md
 
+  - KPIs:
+      - api_reference/kpis/index.md
+      - Core Classes:
+        - KPI & Attributes: api_reference/kpis/kpi.md
+        - KPI Collection: api_reference/kpis/collection.md
+        - Aggregations: api_reference/kpis/aggregations.md
+      - Builders:
+        - api_reference/kpis/builders/index.md
+        - Flag Agg Builder: api_reference/kpis/builders/flag_agg_builder.md
+        - Comparison Builder: api_reference/kpis/builders/comparison_builder.md
+        - Base Builder Class: api_reference/kpis/builders/base.md
+      - Definitions:
+        - api_reference/kpis/definitions/index.md
+        - Base Definition: api_reference/kpis/definitions/base.md
+        - Flag Aggregation: api_reference/kpis/definitions/flag_aggregation.md
+        - Comparison: api_reference/kpis/definitions/comparison.md
+        - Custom: api_reference/kpis/definitions/custom.md
+
   - Visualization Modules:
       - api_reference/visualization/index.md
       - TimeSeriesDashboard: api_reference/visualization/time_series_dashboard.md
@@ -69,10 +87,10 @@ nav:
           - Abstract System: api_reference/visualization/folium_viz_system/system.md
           - Data Item: api_reference/visualization/folium_viz_system/data_item.md
         - KPI Collection Visualizer: api_reference/visualization/folium_viz_system/kpi_collection.md
-      - Folium Legend System:
-        - api_reference/visualization/folium_legend_system/index.md
+        - Legends: api_reference/visualization/folium_viz_system/legends.md
       - HTML Table: api_reference/visualization/html_table.md
       - HTML Dashboard: api_reference/visualization/html_dashboard.md
+
   - Energy Data Handling:
       - api_reference/energy_data_handling/index.md
       - Area Accounting:
@@ -93,6 +111,7 @@ nav:
       - Granularity Modules: api_reference/energy_data_handling/granularity_modules.md
       - Network Lines Data: api_reference/energy_data_handling/network_lines_data.md
       - Time Series Gap Handling: api_reference/energy_data_handling/time_series_gap_handling.md
+
   - Utils:
       - pandas_utils:
         - api_reference/utils/pandas_utils/index.md
@@ -109,3 +128,6 @@ nav:
         - PlotlyTheme: api_reference/utils/plotly_utils/plotly_theme.md
         - figure_utils: api_reference/utils/plotly_utils/figure_utils.md
         - px_category_utils: api_reference/utils/plotly_utils/px_category_utils.md
+      - folium_utils:
+        - api_reference/utils/folium_utils/index.md
+        - Screenshotter: api_reference/utils/folium_utils/screenshotter.md

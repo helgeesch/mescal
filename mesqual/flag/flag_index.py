@@ -151,10 +151,11 @@ class FlagIndex(Generic[FlagType], ABC):
             FlagType: The parent model flag, or the flag itself if it's already a model flag
         
         Examples:
+
             >>> flag_index.get_linked_model_flag("Generator.Results.Generation")
-            "Generator.Model"
+                "Generator.Model"
             >>> flag_index.get_linked_model_flag("Node.Model")
-            "Node.Model"  # Model flags return themselves
+                "Node.Model"  # Model flags return themselves
         """
         return self._get_linked_model_flag(flag)
 

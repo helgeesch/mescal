@@ -5,7 +5,7 @@ from tqdm import tqdm
 from shapely.geometry import Polygon, MultiPolygon
 
 from mesqual import StudyManager
-from mesqual.kpis import KPICollection, KPI, ValueComparisonKPI, ArithmeticValueOperationKPI
+from mesqual._kpis_deprecated import KPICollection, KPI, ValueComparisonKPI, ArithmeticValueOperationKPI
 from mesqual.units import Units
 from mesqual.utils.dict_combinations import dict_combination_iterator
 from mesqual.utils.logging import get_logger

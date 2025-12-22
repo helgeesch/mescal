@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Generic
 
 from mesqual.typevars import DiscreteMappingType
-from mesqual.visualizations.folium_legend_system.base import BaseLegend
+from mesqual.visualizations.folium_viz_system.legends.base import BaseLegend
 
 
 class DiscreteLegendBase(BaseLegend[DiscreteMappingType], Generic[DiscreteMappingType]):

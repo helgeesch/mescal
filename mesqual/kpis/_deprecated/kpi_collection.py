@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from mesqual.kpis.kpi_base import KPI
+from mesqual._kpis_deprecated.kpi_base import KPI
 from mesqual.utils.intersect_dicts import get_intersection_of_dicts
 from mesqual.utils.logging import get_logger
 

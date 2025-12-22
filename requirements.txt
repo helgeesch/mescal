@@ -1,5 +1,6 @@
 pandas
 geopandas
+matplotlib
 shapely
 plotly
 folium

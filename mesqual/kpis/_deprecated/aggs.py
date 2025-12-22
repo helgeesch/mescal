@@ -10,7 +10,7 @@ from mesqual.units import Units
 from mesqual.energy_data_handling.granularity_analyzer import TimeSeriesGranularityAnalyzer
 
 if TYPE_CHECKING:
-    from mesqual.kpis.kpi_base import KPI_VALUE_TYPES
+    from mesqual._kpis_deprecated.kpi_base import KPI_VALUE_TYPES
 
 
 @dataclass

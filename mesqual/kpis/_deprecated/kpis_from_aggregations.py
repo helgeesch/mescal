@@ -7,11 +7,11 @@ import pandas as pd
 from mesqual.units import Units
 from mesqual.typevars import DatasetType, FlagType
 from mesqual.utils.pandas_utils.filter import filter_by_model_query
-from mesqual.kpis.kpi_base import KPI, KPIFactory, KPIAttributes
+from mesqual._kpis_deprecated.kpi_base import KPI, KPIFactory, KPIAttributes
 from mesqual.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from mesqual.kpis.aggs import Aggregation
+    from mesqual._kpis_deprecated.aggs import Aggregation
 
 logger = get_logger(__name__)
 

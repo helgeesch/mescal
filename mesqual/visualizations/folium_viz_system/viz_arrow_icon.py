@@ -109,6 +109,7 @@ class ArrowIconFeatureResolver(FeatureResolver[ResolvedArrowIconFeature]):
         **property_mappers: Additional custom property mappings
         
     Examples:
+
         Basic directional flow arrows:
         >>> from captain_arro import ArrowTypeEnum
         >>> resolver = ArrowIconFeatureResolver(

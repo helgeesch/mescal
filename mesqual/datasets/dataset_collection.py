@@ -14,8 +14,9 @@ from mesqual.utils.intersect_dicts import get_intersection_of_dicts
 from mesqual.typevars import DatasetType, DatasetConfigType, FlagType, FlagIndexType
 
 if TYPE_CHECKING:
-    from mesqual.kpis.kpi_base import KPIFactory
-    from mesqual.kpis.kpi_collection import KPICollection
+    from mesqual.kpis.kpi import KPI
+    from mesqual.kpis.definitions.base import KPIDefinition
+    from mesqual.kpis.collection import KPICollection
     from mesqual.databases.database import Database
 
 logger = get_logger(__name__)
@@ -94,31 +95,56 @@ class DatasetCollection(
         attributes_that_all_childs_have_in_common = get_intersection_of_dicts(child_dataset_atts)
         return {**attributes_that_all_childs_have_in_common, **self._attributes.copy()}
 
-    def get_merged_kpi_collection(self, deep: bool = True) -> 'KPICollection':
-        from mesqual.kpis.kpi_collection import KPICollection
-        all_kpis = set()
+    def get_merged_kpi_collection(self, deep: bool = True) -> KPICollection:
+        """
+        Merge KPI collections from all child datasets.
+
+        This method collects KPIs from all child datasets' kpi_collection
+        properties and returns a unified collection. Optionally recurses into
+        nested DatasetCollections.
+
+        Args:
+            deep: If True, recursively merge from nested DatasetCollections
+
+        Returns:
+            KPICollection containing all KPIs from all child datasets
+
+        Example:
+
+            >>> # Create KPIs for all scenarios
+            >>> study.scen: DatasetConcatCollection
+            >>> study.scen.add_kpis_from_definitions_to_all_child_datasets(kpi_defs)
+            >>>
+            >>> # Get merged collection across all scenarios
+            >>> all_kpis = study.scen.get_merged_kpi_collection()
+            >>>
+            >>> # Filter and export
+            >>> mean_prices = all_kpis.filter_by(aggregation=Aggregations.Mean)
+            >>> df = mean_prices.to_dataframe(unit_handling='auto_convert')
+        """
+        from mesqual.kpis.collection import KPICollection
+        merged = KPICollection()
+
         for ds in self.datasets:
-            for kpi in ds.kpi_collection:
-                all_kpis.add(kpi)
+            # Add KPIs from this dataset
+            merged.extend(ds.kpi_collection._kpis)
+
+            # Recursively add from nested collections
             if deep and isinstance(ds, DatasetCollection):
-                for kpi in ds.get_merged_kpi_collection(deep=deep):
-                    all_kpis.add(kpi)
+                nested_merged = ds.get_merged_kpi_collection(deep=deep)
+                merged.extend(nested_merged._kpis)
 
-        return KPICollection(all_kpis)
+        return merged
 
-    def add_kpis_to_all_sub_datasets(self, kpis: Iterable[KPIFactory]):
-        for kpi in kpis:
-            self.add_kpi_to_all_sub_datasets(kpi)
+    def add_kpis_from_definitions_to_all_child_datasets(self, kpi_definitions: KPIDefinition | list[KPIDefinition]):
+        for ds in self.dataset_iterator:
+            ds.add_kpis_from_definitions(kpi_definitions)
 
-    def add_kpi_to_all_sub_datasets(self, kpi: KPIFactory):
-        for ds in self.datasets:
-            ds.add_kpi(kpi)
-
-    def clear_kpi_collection_for_all_sub_datasets(self, deep: bool = True):
+    def clear_kpi_collection_for_all_child_datasets(self, deep: bool = True):
         for ds in self.datasets:
             ds.clear_kpi_collection()
             if deep and isinstance(ds, DatasetCollection):
-                ds.clear_kpi_collection_for_all_sub_datasets(deep=deep)
+                ds.clear_kpi_collection_for_all_child_datasets(deep=deep)
 
     @abstractmethod
     def _fetch(

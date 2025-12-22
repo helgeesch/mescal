@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import folium
 from shapely.geometry import LineString, Point
 
-from mesqual.kpis import KPI
+from mesqual._kpis_deprecated import KPI
 from mesqual.study_manager import StudyManager
 from mesqual.visualizations.deprecated_styling.segmented_colormap import SegmentedColorMapLegend
 from mesqual.visualizations.deprecated_styling.segmented_line_width_map import SegmentedLineWidthMapLegend

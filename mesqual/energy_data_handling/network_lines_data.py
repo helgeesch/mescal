@@ -107,7 +107,7 @@ class NetworkLineFlowsData:
 
     @classmethod
     def from_net_flow_without_losses(cls, net_flow: pd.DataFrame) -> "NetworkLineFlowsData":
-        """Create NetworkLineFlowsData from net flow data assuming no transmission losses.
+        """Create NetworkLineFlowsData from net line flow data assuming no transmission losses.
         
         Converts net flow data (where positive values indicate flow in up direction
         and negative values indicate flow in down direction) into the bidirectional
@@ -137,6 +137,48 @@ class NetworkLineFlowsData:
             received_up=positive_flow,
             sent_down=negative_flow,
             received_down=negative_flow
+        )
+
+    @classmethod
+    def from_nodal_net_injection(
+            cls,
+            node_a_net_injection: pd.DataFrame,
+            node_b_net_injection: pd.DataFrame
+    ) -> "NetworkLineFlowsData":
+        """Create NetworkLineFlowsData from nodal net-injection data.
+
+        Converts nodal net-injection data (where positive values indicate flow from node towards line (injection)
+        and negative values indicate flow from line towards node (ejection)) into the bidirectional
+        flow representation used by this class. Automatically computes losses.
+        Node_A refers to the topological "node_from" and
+        Node_B to the topological "node_to" in the definition of the lines.
+
+        Args:
+            node_a_net_injection: DataFrame with net injection at Node_A.
+                positive = injection, negative = ejection
+            node_b_net_injection: DataFrame with net injection at Node_B.
+                positive = injection, negative = ejection
+
+        Returns:
+            NetworkLineFlowsData instance with flows split into up/down directions
+
+        Example:
+
+            >>> import pandas as pd
+            >>> net_injection_a = pd.DataFrame({
+            ...     'power_a': [100, -49, -49],
+            ... })
+            >>> net_injection_b = pd.DataFrame({
+            ...     'power_b': [-98, 50,  50]
+            ... })
+            >>> line_data = NetworkLineFlowsData.from_nodal_net_injection(net_injection_a, net_injection_b)
+        """
+
+        return cls(
+            sent_up=node_a_net_injection.clip(0),
+            received_up=-1 * node_b_net_injection.clip(None, 0),
+            sent_down=node_b_net_injection.clip(0),
+            received_down=-1 * node_a_net_injection.clip(None, 0)
         )
 
     @classmethod

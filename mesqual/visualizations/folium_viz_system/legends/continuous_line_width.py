@@ -1,4 +1,4 @@
-from mesqual.visualizations.folium_legend_system.base_continuous import ContinuousLegendBase
+from mesqual.visualizations.folium_viz_system.legends.base_continuous import ContinuousLegendBase
 from mesqual.visualizations.value_mapping_system.continuous import SegmentedContinuousLineWidthMapping
 
 
