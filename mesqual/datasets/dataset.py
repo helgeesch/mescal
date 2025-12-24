@@ -314,7 +314,7 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
             >>> prices = dataset.fetch('buses_t.marginal_price')
             >>>
             >>> # With custom configuration
-            >>> prices = dataset.fetch('buses_t.marginal_price', config={'use_database': False})
+            >>> prices = dataset.fetch('buses_t.marginal_price', config=dict(use_database=False))
         """
         effective_config = self._prepare_config(config)
         use_database = self._database is not None and effective_config.use_database
