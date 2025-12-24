@@ -46,11 +46,10 @@ plugins:
 
 nav:
   - Core:
+    - about_mesqual.md
     - StudyManager: api_reference/study_manager.md
     - Datasets: api_reference/datasets.md
-    - Flag System:
-      - Flag: api_reference/flag.md
-      - FlagIndex: api_reference/flag_index.md
+    - Flag System: api_reference/flag.md
     - Units: api_reference/units.md
     - Validation: api_reference/validation.md
 
