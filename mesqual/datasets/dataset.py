@@ -289,32 +289,96 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     def fetch(self, flag: FlagType, config: dict | DatasetConfigType = None, **kwargs) -> pd.Series | pd.DataFrame:
         """
         Fetch data associated with a specific flag.
-        
+
         This is the primary method for data access in MESQUAL datasets. It provides
         a unified interface for retrieving data regardless of the underlying source
         or dataset type. The method includes automatic caching, post-processing,
         and configuration management.
-        
+
+        Configuration Override Behavior
+        -------------------------------
+        The ``config`` parameter allows fetch-time overrides of dataset behavior.
+        These overrides are merged with the dataset's effective configuration
+        (which combines class-level and instance-level settings). Only non-None
+        values in the override will replace the existing settings.
+
+        The configuration resolution hierarchy (later overrides earlier):
+            1. Base config defaults
+            2. Class config (via DatasetConfigManager)
+            3. Instance config (passed to Dataset.__init__)
+            4. **Fetch-time config (this parameter)**
+
         Args:
             flag: Data identifier flag (must be in accepted_flags)
             config: Optional configuration to override dataset defaults.
-                   Can be a dict or DatasetConfig instance.
+                Can be either:
+
+                - **dict**: Quick way to override specific settings. Keys must
+                  match config attribute names (e.g., ``use_database``,
+                  ``auto_sort_datetime_index``). Platform-specific options
+                  are also supported if the dataset uses an extended config.
+
+                - **DatasetConfig instance**: Full config object for type safety.
+                  Must be compatible with the dataset's config type.
+
             **kwargs: Additional keyword arguments passed to the underlying
-                     data fetching implementation
-                     
+                data fetching implementation
+
         Returns:
             DataFrame or Series containing the requested data
-            
+
         Raises:
             ValueError: If the flag is not accepted by this dataset
-            
-        Examples:
 
-            >>> # Basic usage
-            >>> prices = dataset.fetch('buses_t.marginal_price')
-            >>>
-            >>> # With custom configuration
-            >>> prices = dataset.fetch('buses_t.marginal_price', config=dict(use_database=False))
+        Examples:
+            Basic usage::
+
+                >>> prices = dataset.fetch('buses_t.marginal_price')
+
+            Override base config options with a dict::
+
+                >>> # Skip database cache for this fetch
+                >>> prices = dataset.fetch(
+                ...     'buses_t.marginal_price',
+                ...     config=dict(use_database=False)
+                ... )
+                >>>
+                >>> # Disable datetime sorting
+                >>> prices = dataset.fetch(
+                ...     'generators_t.p',
+                ...     config=dict(auto_sort_datetime_index=False)
+                ... )
+
+            Override platform-specific options::
+
+                >>> # Platform configs may have additional options
+                >>> # e.g., a config with timestamp conversion setting
+                >>> data = dataset.fetch(
+                ...     'some_flag',
+                ...     config=dict(convert_period_enum_to_datetime_index=False)
+                ... )
+
+            Override study-specific options::
+
+                >>> # Study-specific configs can add custom behavior
+                >>> # e.g., toggle custom data corrections
+                >>> data = dataset.fetch(
+                ...     'some_flag',
+                ...     config=dict(apply_custom_correction=False)
+                ... )
+
+            Using a config object::
+
+                >>> from mesqual.datasets import DatasetConfig
+                >>> custom_config = DatasetConfig(
+                ...     use_database=False,
+                ...     auto_sort_datetime_index=False
+                ... )
+                >>> prices = dataset.fetch('buses_t.marginal_price', config=custom_config)
+
+        See Also:
+            :class:`~mesqual.datasets.dataset_config.DatasetConfig`: Base configuration class
+            :class:`~mesqual.datasets.dataset_config.DatasetConfigManager`: Class-level config registry
         """
         effective_config = self._prepare_config(config)
         use_database = self._database is not None and effective_config.use_database
@@ -350,6 +414,25 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
         return data
 
     def _prepare_config(self, config: dict | DatasetConfigType = None) -> DatasetConfigType:
+        """
+        Prepare the effective configuration for a fetch operation.
+
+        Resolves the final configuration by merging the provided config override
+        with the dataset's instance config (which already includes class-level
+        and base defaults via DatasetConfigManager).
+
+        Args:
+            config: Optional override configuration. Can be:
+                - None: Use instance config as-is
+                - dict: Create temp config from dict and merge
+                - DatasetConfig: Merge directly with instance config
+
+        Returns:
+            The fully resolved configuration for the fetch operation.
+
+        Raises:
+            TypeError: If config is neither None, dict, nor DatasetConfig.
+        """
         if config is None:
             return self.instance_config
 
