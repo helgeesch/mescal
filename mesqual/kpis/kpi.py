@@ -71,6 +71,8 @@ class KPI:
         """
         parts = []
 
+        parts.append(self.attributes.dataset_name)
+
         if self.attributes.name_prefix:
             parts.append(self.attributes.name_prefix)
 
