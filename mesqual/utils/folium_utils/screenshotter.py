@@ -458,6 +458,147 @@ class FoliumScreenshotter:
         finally:
             self._stop_browser()
 
+    def list_exclusive_feature_groups(self) -> list[str]:
+        """List all exclusive feature groups (overlay=False).
+
+        Returns:
+            List of exclusive feature group names.
+        """
+        try:
+            self._start_browser()
+            self._load_map()
+
+            return self._driver.execute_script("""
+                let result = [];
+                document.querySelectorAll('.leaflet-control-layers-base label').forEach(label => {
+                    result.push(label.textContent.trim());
+                });
+                return result;
+            """)
+        finally:
+            self._stop_browser()
+
+    def list_overlay_feature_groups(self) -> list[str]:
+        """List all overlay feature groups (overlay=True).
+
+        Returns:
+            List of overlay feature group names.
+        """
+        try:
+            self._start_browser()
+            self._load_map()
+
+            return self._driver.execute_script("""
+                let result = [];
+                document.querySelectorAll('.leaflet-control-layers-overlays label').forEach(label => {
+                    result.push(label.textContent.trim());
+                });
+                return result;
+            """)
+        finally:
+            self._stop_browser()
+
+    def _set_overlay_states(self, active_overlays: list[str]) -> None:
+        """Set which overlays are visible.
+
+        Args:
+            active_overlays: List of overlay names that should be visible.
+                            All others will be hidden.
+        """
+        self._driver.execute_script("""
+            let activeNames = arguments[0];
+            document.querySelectorAll('.leaflet-control-layers-overlays label').forEach(label => {
+                let input = label.querySelector('input');
+                let name = label.textContent.trim();
+                let shouldBeChecked = activeNames.includes(name);
+
+                if (input.checked !== shouldBeChecked) {
+                    input.click();
+                }
+            });
+        """, active_overlays)
+        time.sleep(0.5)
+
+    def capture_selected_exclusives(
+            self,
+            layer_names: list[str],
+            output_dir: str | Path,
+            screen_config: ScreenConfig | None = None,
+            frame_config: FrameConfig | None = None,
+            map_view_config: MapViewConfig | None = None,
+            active_overlays: list[str] | None = None,
+    ) -> list[Path]:
+        """Capture screenshots of specific exclusive layers by name.
+
+        Args:
+            layer_names: List of exclusive layer names to capture.
+            output_dir: Directory to save screenshots.
+            screen_config: Temporary screen config (overrides instance config).
+            frame_config: Temporary frame config (overrides instance config).
+            map_view_config: Temporary map view config (overrides instance config).
+            active_overlays: List of overlay names to keep visible during capture.
+                            If None, all overlays remain in their current state.
+
+        Returns:
+            List of paths to saved screenshot files.
+
+        Raises:
+            ValueError: If a specified layer name is not found.
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        saved_files = []
+
+        # Use temporary configs if provided, otherwise fall back to instance configs
+        temp_screen = screen_config or self._screen_config
+        temp_frame = frame_config or self._frame_config
+        temp_map_view = map_view_config or self._map_view_config
+
+        # Temporarily swap configs
+        original_screen = self._screen_config
+        original_frame = self._frame_config
+        original_map_view = self._map_view_config
+
+        try:
+            self._screen_config = temp_screen
+            self._frame_config = temp_frame
+            self._map_view_config = temp_map_view
+
+            self._start_browser()
+            self._load_map()
+
+            map_name = self._get_map_object_name()
+            if not map_name:
+                raise RuntimeError("Could not find Leaflet map object")
+
+            self._set_view(map_name)
+
+            if active_overlays is not None:
+                self._set_overlay_states(active_overlays)
+
+            base_layers = self._get_base_layers()
+            layer_map = {layer["name"]: layer for layer in base_layers}
+
+            for name in layer_names:
+                if name not in layer_map:
+                    raise ValueError(f"Layer '{name}' not found. Available: {list(layer_map.keys())}")
+
+                layer = layer_map[name]
+                self._select_base_layer(layer["index"])
+                filename = f"{self._sanitize_filename(name)}.png"
+                output_path = output_dir / filename
+                self._take_screenshot(output_path)
+                saved_files.append(output_path)
+                print(f"Saved: {output_path}")
+
+            return saved_files
+        finally:
+            # Restore original configs
+            self._screen_config = original_screen
+            self._frame_config = original_frame
+            self._map_view_config = original_map_view
+            self._stop_browser()
+
     def capture_single_view(self, output_path: str | Path) -> Path:
         """Capture a single screenshot of the current map view.
 

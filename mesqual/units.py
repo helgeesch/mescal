@@ -53,19 +53,23 @@ ureg.define("day = 24 hour = day")
 ureg.define("week = 7 day = week")
 ureg.define("year = 365 day = year")
 
+ureg.define("MTU = [mtu]")
+ureg.define("period = [period]")
+ureg.define("per_unit = [pu]")          # 0 - 1
+ureg.define("ratio = [ratio]")          # 0 - 1
+ureg.define("perc = [percentage]")      # 0 - 100
+ureg.define("percent_base = 1e-2 percent = percent_base")
+
 ureg.define("W_per_min = W / minute = [ramping]")
 ureg.define("MW_per_min = MW / minute")
 ureg.define("MW_per_hour = MW / hour")
 
+ureg.define("W_per_period = W / period = [ramping_per_period]")
+ureg.define("MW_per_period = MW / period")
+
 ureg.define("EUR_per_W_per_min = EUR / (W / minute) = [price_for_ramping]")
 ureg.define("EUR_per_MW_per_min = EUR / (MW / minute)")
 ureg.define("EUR_per_MW_per_hour = EUR / (MW / hour)")
-
-ureg.define("MTU = [mtu]")
-ureg.define("per_unit = [pu]")
-ureg.define("perc = [percentage]")
-ureg.define("percent_base = 1e-2 percent = percent_base")
-
 
 ureg.define("NaU = []")  # Not a Unit; no physical meaning, dimensionless
 ureg.define("MissingUnit = []")  # For missing units
@@ -142,6 +146,9 @@ class Units(metaclass=_IterableUnitsMeta):
     MW_per_min = _ureg.MW_per_min
     MW_per_hour = _ureg.MW_per_hour
 
+    W_per_period = _ureg.W_per_period
+    MW_per_period = _ureg.MW_per_period
+
     EUR = _ureg.EUR
     kEUR = _ureg.kEUR
     MEUR = _ureg.MEUR
@@ -160,6 +167,7 @@ class Units(metaclass=_IterableUnitsMeta):
 
     percent_base = _ureg.percent_base
     percent = _ureg.perc
+    ratio = _ureg.ratio
     per_unit = _ureg.per_unit
     MTU = _ureg.MTU
     NaU = _ureg.NaU
@@ -174,7 +182,7 @@ class Units(metaclass=_IterableUnitsMeta):
         'nan': 'N/A',
     }
 
-    _INTENSIVE_QUANTITIES = [W, EUR_per_Wh, percent_base, per_unit]
+    _INTENSIVE_QUANTITIES = [W, EUR_per_Wh, percent_base, per_unit, ratio, W_per_period, W_per_min, EUR_per_W]
     _EXTENSIVE_QUANTITIES = [Wh, EUR, MTU]
 
     @classmethod

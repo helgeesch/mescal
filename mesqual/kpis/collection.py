@@ -473,8 +473,9 @@ class KPICollection:
 
             elif unit_handling == 'custom' and target_units_by_group and group_by_attributes:
                 # Build group key
+                kpi_attributes = kpi.attributes.as_dict(primitive_values=True)
                 group_key = tuple(
-                    getattr(kpi.attributes, attr, None)
+                    kpi_attributes[attr] if attr in kpi_attributes else None
                     for attr in group_by_attributes
                 )
                 if group_key in target_units_by_group:
@@ -484,6 +485,7 @@ class KPICollection:
                 'name': kpi.name,
                 **kpi.attributes.as_dict(primitive_values=True),
                 'value': quantity.magnitude,
+                'quantity': quantity,
                 'unit': str(quantity.units),  # Set after attributes to avoid being overwritten
             }
             data.append(row)

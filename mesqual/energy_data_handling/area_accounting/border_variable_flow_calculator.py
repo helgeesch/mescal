@@ -176,4 +176,5 @@ class BorderFlowCalculator(AreaBorderVariableCalculatorBase):
         
         result = pd.DataFrame(border_flows)
         result.columns.name = self.border_identifier
+        result.index.name = line_flow_data.sent_up.index.name
         return result
