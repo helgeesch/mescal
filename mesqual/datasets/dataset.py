@@ -51,7 +51,7 @@ class _DotNotationFetcher:
     direct dataset attribute access and delayed execution through fetch_dotted.
 
     Usage:
-        dataset.dotfetch.my.flag.as.string()
+        dataset.dotfetch().my.flag.as.string()
     """
     def __init__(self, dataset, accumulated_parts: list[str] = None):
         self._dataset = dataset
@@ -73,15 +73,15 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     
     The Dataset class provides the fundamental interface for data access and manipulation
     in MESQUAL. It implements the core principle "Everything is a Dataset" where individual
-    scenarios, collections of scenarios, and scenario comparisons all share the same
-    unified interface.
+    scenarios, scenarios merged from multiple simulation runs or data sources,
+    collections of scenarios, and scenario comparisons all share the same unified interface.
     
     Key Features:
         - Unified `.fetch(flag)` interface for data access
         - Attribute management for scenario metadata
-        - KPI calculation integration
+        - KPI calculation integrations
         - Database caching support
-        - Dot notation fetching via `dotfetch` property
+        - Dot notation fetching via `dotfetch()`
         - Type-safe generic implementation
     
     Type Parameters:
@@ -92,8 +92,7 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     Attributes:
         name (str): Human-readable identifier for the dataset
         kpi_collection (KPICollection): Collection of KPIs associated with this dataset
-        dotfetch (_DotNotationFetcher): Enables dot notation data access
-        
+
     Example:
 
         >>> # Basic usage pattern
@@ -129,10 +128,12 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
         self._attributes: dict = attributes or dict()
         self._database = database
         self._config = config
-        self.dotfetch = _DotNotationFetcher(self)
 
         from mesqual.kpis.collection import KPICollection
         self.kpi_collection: KPICollection = KPICollection()
+
+    def dotfetch(self) -> _DotNotationFetcher:
+        return _DotNotationFetcher(self)
 
     @property
     def flag_index(self) -> FlagIndexType:

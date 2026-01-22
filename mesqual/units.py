@@ -7,10 +7,13 @@ from mesqual.enums import QuantityTypeEnum
 
 
 class UnitNotFound(Exception):
+    """Raised when a requested unit with specific order of magnitude is not found in the registry."""
     pass
 
 
 class UnitRegistryNotComplete(Exception):
+    """Raised when the Units class is missing expected unit definitions for a dimensionality."""
+
     def __init__(self, message: str = None):
         base = f'You should never end up here. Your units are not properly registered in the {Units.__name__} class.'
         message = message or ''
@@ -78,6 +81,51 @@ class _IterableUnitsMeta(type):
 
 
 class Units(metaclass=_IterableUnitsMeta):
+    """
+    Central registry for energy system units with utilities for unit conversion and formatting.
+
+    Provides a comprehensive collection of energy, power, currency, time, and derived units
+    commonly used in energy systems analysis. Built on the pint library, this class extends
+    the standard unit registry with energy-specific units and intelligent formatting capabilities.
+
+    Unit Categories:
+        Energy: Wh, kWh, MWh, GWh, TWh
+        Power: W, kW, MW, GW, TW
+        Ramping: W_per_min, MW_per_min, MW_per_hour
+        Currency: EUR, kEUR, MEUR, BEUR, TEUR
+        Energy Prices: EUR_per_Wh, EUR_per_MWh
+        Capacity Prices: EUR_per_W, EUR_per_MW
+        Ramping Prices: EUR_per_W_per_min, EUR_per_MW_per_min, EUR_per_MW_per_hour
+        Time: minute, hour, day, week, year
+        Dimensionless: per_unit, percent, percent_base, MTU, NaU, MissingUnit
+
+    Key Features:
+        - Automatic "pretty" unit selection for optimal readability
+        - Common unit finding across collections of quantities
+        - Configurable text formatting with thousand separators and decimal control
+        - Intensive/extensive quantity classification
+        - Unit family iteration and base unit resolution
+
+    Examples:
+        Basic usage:
+        >>> energy = 5432.1 * Units.kWh
+        >>> Units.get_quantity_in_pretty_unit(energy)
+        5.4321 MWh
+
+        Formatting:
+        >>> price = 45.678 * Units.EUR_per_MWh
+        >>> Units.get_pretty_text_for_quantity(price, decimals=2)
+        '45.68 €/MWh'
+
+        Finding common units for collections:
+        >>> quantities = [1_500_000 * Units.EUR, 2_300_000 * Units.EUR]
+        >>> common_unit = Units.get_common_pretty_unit_for_quantities(quantities)
+        >>> common_unit
+        MEUR
+
+    See Also:
+        QuantityToTextConverter: Reusable formatter for consistent quantity display
+    """
     _ureg = ureg
     Unit = Unit
     Quantity = Quantity
@@ -139,6 +187,27 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def get_quantity_type_enum(cls, unit: Unit) -> QuantityTypeEnum:
+        """
+        Classify a unit as intensive or extensive quantity.
+
+        Intensive quantities (e.g., power, prices) are independent of system size,
+        while extensive quantities (e.g., energy, cost) scale with system size.
+
+        Args:
+            unit: The unit to classify
+
+        Returns:
+            QuantityTypeEnum indicating INTENSIVE or EXTENSIVE
+
+        Raises:
+            KeyError: If the unit's base unit is not registered in the classification lists
+
+        Examples:
+            >>> Units.get_quantity_type_enum(Units.MW)
+            QuantityTypeEnum.INTENSIVE
+            >>> Units.get_quantity_type_enum(Units.MWh)
+            QuantityTypeEnum.EXTENSIVE
+        """
         base_unit = cls.get_base_unit_for_unit(unit)
         if base_unit in cls._INTENSIVE_QUANTITIES:
             return QuantityTypeEnum.INTENSIVE
@@ -148,18 +217,83 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def units_have_same_base(cls, unit_1: Unit, unit_2: Unit) -> bool:
+        """
+        Check if two units have the same dimensionality (are convertible).
+
+        Args:
+            unit_1: First unit to compare
+            unit_2: Second unit to compare
+
+        Returns:
+            True if units have same dimensionality, False otherwise
+
+        Examples:
+            >>> Units.units_have_same_base(Units.kWh, Units.MWh)
+            True
+            >>> Units.units_have_same_base(Units.kWh, Units.MW)
+            False
+        """
         return unit_1.dimensionality == unit_2.dimensionality
 
     @classmethod
     def get_base_unit_for_unit(cls, unit: Unit) -> Unit:
+        """
+        Get the base unit (order of magnitude 1) for a given unit's dimensionality.
+
+        Args:
+            unit: Unit to find base unit for
+
+        Returns:
+            The base unit with order of magnitude 1 (e.g., W for power, Wh for energy)
+
+        Examples:
+            >>> Units.get_base_unit_for_unit(Units.MW)
+            W
+            >>> Units.get_base_unit_for_unit(Units.GWh)
+            Wh
+        """
         return cls.get_target_unit_for_oom(unit, 1)
 
     @classmethod
     def get_oom_of_unit(cls, unit: Unit) -> float:
+        """
+        Get the order of magnitude of a unit relative to its base unit.
+
+        Args:
+            unit: Unit to determine order of magnitude for
+
+        Returns:
+            Order of magnitude as float (e.g., 1e6 for MW, 1e9 for GW)
+
+        Examples:
+            >>> Units.get_oom_of_unit(Units.MW)
+            1000000.0
+            >>> Units.get_oom_of_unit(Units.kWh)
+            1000.0
+        """
         return (1 * unit).to_base_units().magnitude
 
     @classmethod
     def get_target_unit_for_oom(cls, reference_unit: Unit, target_oom: float) -> Quantity:
+        """
+        Find a unit with exact order of magnitude within the same dimensionality.
+
+        Args:
+            reference_unit: Unit defining the dimensionality
+            target_oom: Target order of magnitude (e.g., 1e6 for mega, 1e9 for giga)
+
+        Returns:
+            Unit with the exact target order of magnitude
+
+        Raises:
+            UnitNotFound: If no unit with exact target order of magnitude exists
+
+        Examples:
+            >>> Units.get_target_unit_for_oom(Units.W, 1e6)
+            MW
+            >>> Units.get_target_unit_for_oom(Units.EUR, 1e9)
+            BEUR
+        """
         units = cls.get_all_units_with_equal_base(reference_unit)
         for u in units:
             if cls.get_oom_of_unit(u) == target_oom:
@@ -168,6 +302,28 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def get_closest_unit_for_oom(cls, reference_unit: Unit, target_oom: float) -> Quantity:
+        """
+        Find the closest unit for a target order of magnitude (doesn't require exact match).
+
+        Selects the largest unit whose order of magnitude is less than or equal to
+        the target order of magnitude.
+
+        Args:
+            reference_unit: Unit defining the dimensionality
+            target_oom: Target order of magnitude
+
+        Returns:
+            Closest unit with order of magnitude <= target_oom
+
+        Raises:
+            UnitRegistryNotComplete: If no units found for the dimensionality
+
+        Examples:
+            >>> Units.get_closest_unit_for_oom(Units.W, 5e5)  # Between kW and MW
+            kW
+            >>> Units.get_closest_unit_for_oom(Units.EUR, 7.5e6)  # Between MEUR and BEUR
+            MEUR
+        """
         units_with_same_dimension = cls.get_all_units_with_equal_base(reference_unit)
         if len(units_with_same_dimension) == 0:
             raise UnitRegistryNotComplete
@@ -180,6 +336,21 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def get_quantity_in_target_oom(cls, quantity: Quantity, target_oom: float) -> Quantity:
+        """
+        Convert quantity to unit with specific order of magnitude.
+
+        Args:
+            quantity: Quantity to convert
+            target_oom: Target order of magnitude
+
+        Returns:
+            Quantity converted to target order of magnitude, or original if not found
+
+        Examples:
+            >>> energy = 5000 * Units.kWh
+            >>> Units.get_quantity_in_target_oom(energy, 1e6)
+            5.0 MWh
+        """
         try:
             target_unit = cls.get_target_unit_for_oom(quantity.units, target_oom)
             return quantity.to(target_unit)
@@ -189,10 +360,48 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def get_quantity_in_target_unit(cls, quantity: Quantity, target_unit: Unit) -> Quantity:
+        """
+        Convert quantity to a specific target unit.
+
+        Simple wrapper around pint's to() method for consistency with other unit conversion methods.
+
+        Args:
+            quantity: Quantity to convert
+            target_unit: Target unit
+
+        Returns:
+            Quantity converted to target unit
+
+        Examples:
+            >>> energy = 5000 * Units.kWh
+            >>> Units.get_quantity_in_target_unit(energy, Units.MWh)
+            5.0 MWh
+        """
         return quantity.to(target_unit)
 
     @classmethod
     def get_quantity_in_pretty_unit(cls, quantity: Quantity) -> Quantity:
+        """
+        Convert quantity to the most readable unit (magnitude between 1 and 10,000).
+
+        Automatically selects a unit where the magnitude is less than 10,000,
+        making the value easy to read and comprehend.
+
+        Args:
+            quantity: Quantity to convert
+
+        Returns:
+            Quantity in "pretty" readable unit
+
+        Examples:
+            >>> energy = 5432100 * Units.Wh
+            >>> Units.get_quantity_in_pretty_unit(energy)
+            5.4321 MWh
+
+            >>> cost = 0.045 * Units.EUR
+            >>> Units.get_quantity_in_pretty_unit(cost)
+            4.5 EUR_cent
+        """
         base_unit = cls.get_base_unit_for_unit(quantity.units)
         units = cls.get_all_units_with_equal_base(base_unit)
         units = sorted(units, key=lambda x: (1 * x).to(base_unit).magnitude, reverse=False)
@@ -285,6 +494,21 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def get_all_units_with_equal_base(cls, unit: Unit) -> list[Unit]:
+        """
+        Get all registered units with the same dimensionality as the input unit.
+
+        Args:
+            unit: Reference unit to match dimensionality
+
+        Returns:
+            List of all units with same dimensionality (e.g., all energy units, all power units)
+
+        Examples:
+            >>> Units.get_all_units_with_equal_base(Units.MW)
+            [W, kW, MW, GW, TW]
+            >>> Units.get_all_units_with_equal_base(Units.EUR)
+            [EUR_cent, EUR, kEUR, MEUR, BEUR, TEUR]
+        """
         return [u for u in Units if cls.units_have_same_base(unit, u)]
 
     @classmethod
@@ -297,6 +521,35 @@ class Units(metaclass=_IterableUnitsMeta):
             include_oom: bool = True,
             include_sign: bool = None,
     ) -> str:
+        """
+        Format a quantity as human-readable text with customizable formatting.
+
+        Applies string replacements for better readability (e.g., '_per_' → '/', 'EUR' → '€').
+
+        Args:
+            quantity: Quantity to format
+            decimals: Number of decimal places (auto-determined if None)
+            thousands_separator: Separator for thousands (default: '')
+            include_unit: Whether to include unit in output (default: True)
+            include_oom: Whether to include order of magnitude prefix (default: True)
+            include_sign: Whether to include '+' for positive values (default: None/auto)
+
+        Returns:
+            Formatted text string representation of the quantity
+
+        Examples:
+            >>> price = 45.678 * Units.EUR_per_MWh
+            >>> Units.get_pretty_text_for_quantity(price, decimals=2)
+            '45.68 €/MWh'
+
+            >>> cost = 1234567 * Units.EUR
+            >>> Units.get_pretty_text_for_quantity(cost, thousands_separator=' ')
+            '1 234 567 €'
+
+            >>> power = 5.2 * Units.MW
+            >>> Units.get_pretty_text_for_quantity(power, include_sign=True)
+            '+5.2 MW'
+        """
         if decimals is None:
             decimals = cls.get_pretty_decimals(quantity)
         if thousands_separator is None:
@@ -333,6 +586,22 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def _get_sign_str_for_quantity(cls, quantity: Quantity, include_sign: bool = None) -> str:
+        """
+        Get the sign string for a quantity value.
+
+        Internal helper method for formatting quantities with appropriate sign representation.
+
+        Args:
+            quantity: Quantity to get sign for
+            include_sign: Whether to include '+' for positive values
+
+        Returns:
+            Sign string: '+', '-', or '' (empty)
+
+        Note:
+            Returns empty string for NaN, zero, or when include_sign is False.
+            For positive values, only returns '+' if include_sign is explicitly True.
+        """
         if include_sign is False:
             return ''
 
@@ -352,7 +621,31 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def get_pretty_decimals(cls, quantity: Quantity) -> int:
+        """
+        Determine appropriate number of decimal places for a quantity's magnitude.
 
+        Automatically selects decimal places based on the magnitude to ensure readability:
+        - Integer values: 0 decimals
+        - >100: 0 decimals
+        - >10: 1 decimal
+        - >0.1: 2 decimals
+        - >0.01: 3 decimals
+        - <0.01: 5 decimals
+
+        Args:
+            quantity: Quantity to determine decimal places for
+
+        Returns:
+            Number of decimal places (0-5)
+
+        Examples:
+            >>> Units.get_pretty_decimals(1234.5 * Units.MW)
+            0
+            >>> Units.get_pretty_decimals(12.34 * Units.MW)
+            1
+            >>> Units.get_pretty_decimals(0.0123 * Units.MW)
+            5
+        """
         # if quantity.units == Units.per_unit:
         #     return 3
 
@@ -375,6 +668,23 @@ class Units(metaclass=_IterableUnitsMeta):
 
     @classmethod
     def _get_units_oom_prefix(cls, unit: Unit) -> str:
+        """
+        Extract the order of magnitude prefix from a unit.
+
+        Internal helper that returns the prefix (k, M, G, T) by removing the base unit.
+
+        Args:
+            unit: Unit to extract prefix from
+
+        Returns:
+            Order of magnitude prefix string (e.g., 'k', 'M', 'G')
+
+        Examples:
+            >>> Units._get_units_oom_prefix(Units.MW)
+            'M'
+            >>> Units._get_units_oom_prefix(Units.kWh)
+            'k'
+        """
         base_unit = cls.get_base_unit_for_unit(unit)
         return str(unit).replace(str(base_unit), '')
 

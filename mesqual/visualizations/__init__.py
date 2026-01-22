@@ -23,18 +23,18 @@ Example:
 """
 
 from . import folium_viz_system
-from . import folium_viz_system as fiz
+from . import folium_viz_system as folviz
 from . import value_mapping_system
-from . import value_mapping_system as vmaps
+from . import value_mapping_system as valmap
 from .plotly_figures.timeseries_dashboard import TimeSeriesDashboardGenerator
 from .html_dashboard import HTMLDashboard
 from .html_table import HTMLTable
 
 __all__ = [
     'value_mapping_system',
-    'vmaps',
+    'valmap',
     'folium_viz_system',
-    'fiz',
+    'folviz',
     'TimeSeriesDashboardGenerator',
     'HTMLDashboard',
     'HTMLTable',

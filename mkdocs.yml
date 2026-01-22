@@ -46,11 +46,10 @@ plugins:
 
 nav:
   - Core:
+    - about_mesqual.md
     - StudyManager: api_reference/study_manager.md
     - Datasets: api_reference/datasets.md
-    - Flag System:
-      - Flag: api_reference/flag.md
-      - FlagIndex: api_reference/flag_index.md
+    - Flag System: api_reference/flag.md
     - Units: api_reference/units.md
     - Validation: api_reference/validation.md
 
@@ -90,6 +89,7 @@ nav:
         - Legends: api_reference/visualization/folium_viz_system/legends.md
       - HTML Table: api_reference/visualization/html_table.md
       - HTML Dashboard: api_reference/visualization/html_dashboard.md
+
   - Energy Data Handling:
       - api_reference/energy_data_handling/index.md
       - Area Accounting:
@@ -110,6 +110,7 @@ nav:
       - Granularity Modules: api_reference/energy_data_handling/granularity_modules.md
       - Network Lines Data: api_reference/energy_data_handling/network_lines_data.md
       - Time Series Gap Handling: api_reference/energy_data_handling/time_series_gap_handling.md
+
   - Utils:
       - pandas_utils:
         - api_reference/utils/pandas_utils/index.md
@@ -126,3 +127,6 @@ nav:
         - PlotlyTheme: api_reference/utils/plotly_utils/plotly_theme.md
         - figure_utils: api_reference/utils/plotly_utils/figure_utils.md
         - px_category_utils: api_reference/utils/plotly_utils/px_category_utils.md
+      - folium_utils:
+        - api_reference/utils/folium_utils/index.md
+        - Screenshotter: api_reference/utils/folium_utils/screenshotter.md
