@@ -224,39 +224,142 @@ class DatasetLinkCollection(
     DatasetCollection[DatasetType, DatasetConfigType, FlagType, FlagIndexType]
 ):
     """
-    Links multiple datasets to provide unified data access with automatic routing.
-    
-    DatasetLinkCollection acts as a unified interface to multiple child datasets,
-    automatically routing data requests to the appropriate child dataset that 
-    accepts the requested flag. This is the foundation for platform datasets
-    that combine multiple data interpreters.
-    
-    Key Features:
-        - Automatic flag routing to appropriate child dataset
-        - Bidirectional parent-child relationships
-        - First-match-wins routing strategy
-        - Overlap detection and warnings
-        - Maintains all Dataset interface compatibility
-        
-    Routing Logic:
-        When fetch() is called, iterates through child datasets in order and
-        returns data from the first dataset that accepts the flag.
-        
-    Example:
+    Links specialized flag interpreters into a unified platform dataset interface.
 
-        >>> # Platform dataset with multiple interpreters
-        >>> link_collection = DatasetLinkCollection([
-        ...     ModelInterpreter(network),
-        ...     TimeSeriesInterpreter(network),
-        ...     ObjectiveInterpreter(network)
-        ... ])
-        >>> # Automatically routes to appropriate interpreter
-        >>> buses = link_collection.fetch('buses')  # -> ModelInterpreter
-        >>> prices = link_collection.fetch('buses_t.marginal_price')  # -> TimeSeriesInterpreter
-        
+    DatasetLinkCollection is the foundation for modular platform dataset architectures.
+    It orchestrates multiple specialized interpreter datasets, each handling a specific
+    subset of flags, and automatically routes fetch requests to the appropriate
+    interpreter. This is NOT used for linking scenarios (use DatasetConcatCollection
+    for that), but for linking interpreters within a single scenario/platform.
+
+    Architecture Pattern:
+        Platform datasets (PyPSADataset, PlexosDataset, etc.) are typically
+        implemented as DatasetLinkCollections containing specialized interpreters:
+
+        - **Core Platform Interpreters**: Handle standard platform data
+            - ModelInterpreter: Static model data (generators, buses, lines, etc.)
+            - TimeSeriesInterpreter: Time-varying data (generators_t.p, buses_t.marginal_price)
+            - ObjectiveInterpreter: Optimization objective values
+            - ConstraintInterpreters: Shadow prices, binding constraints
+
+        - **Study-Specific Interpreters**: Extend or override platform behavior
+            - Custom variable interpreters: Derived metrics specific to the study
+            - Correction interpreters: Override platform data with corrections
+            - Integration interpreters: Combine external data sources
+
+    Key Features:
+        - **Automatic Flag Routing**: Fetches are routed to the interpreter that accepts the flag
+        - **Bidirectional Relationships**: Each interpreter can access siblings via parent_dataset
+        - **Separation of Concerns**: Each interpreter specializes in one aspect of the data
+        - **Study Extensibility**: Add custom interpreters without modifying platform code
+        - **First-Match Routing**: First interpreter accepting a flag handles it
+        - **Overlap Detection**: Warns if multiple interpreters accept the same flag
+
+    Routing Logic:
+        1. User calls `platform_dataset.fetch('some_flag')`
+        2. DatasetLinkCollection iterates through child interpreters in order
+        3. Returns data from first interpreter where `interpreter.flag_is_accepted('some_flag')`
+        4. If no interpreter accepts the flag, raises KeyError
+
+    Interpreter Communication:
+        Interpreters access sibling data through the parent_dataset property:
+
+        - `self.parent_dataset.fetch('other_flag')` - Fetch from any sibling
+        - `self.parent_dataset.get_dataset_by_type(InterpreterClass)` - Access specific sibling
+        - `self.parent_dataset.attributes` - Access shared dataset attributes
+
+    Example:
+        Building a platform dataset with modular interpreters:
+
+            >>> # Standard platform dataset structure
+            >>> class PyPSADataset(DatasetLinkCollection):
+            ...     def __init__(self, network, name=None):
+            ...         interpreters = [
+            ...             PyPSAModelInterpreter(network),      # Handles: 'generators', 'buses', 'lines'
+            ...             PyPSATimeSeriesInterpreter(network),  # Handles: 'generators_t.p', 'buses_t.marginal_price'
+            ...             PyPSAObjectiveInterpreter(network),   # Handles: 'objective', 'total_cost'
+            ...         ]
+            ...         super().__init__(datasets=interpreters, name=name)
+            ...
+            ...         # Set bidirectional parent-child links
+            ...         for interpreter in interpreters:
+            ...             interpreter.parent_dataset = self
+            >>>
+            >>> # Usage: transparent routing to correct interpreter
+            >>> dataset = PyPSADataset(network, name='base_case')
+            >>> buses = dataset.fetch('buses')                    # -> PyPSAModelInterpreter
+            >>> gen_p = dataset.fetch('generators_t.p')           # -> PyPSATimeSeriesInterpreter
+            >>> cost = dataset.fetch('objective')                 # -> PyPSAObjectiveInterpreter
+
+        Study-specific extension with custom interpreter:
+
+            >>> # Study extends platform dataset with custom variables
+            >>> class StudyDataset(PyPSADataset):
+            ...     def __init__(self, network, name=None):
+            ...         super().__init__(network, name)
+            ...
+            ...         # Add study-specific interpreter for derived metrics
+            ...         custom_interpreter = RESGenerationInterpreter()
+            ...         custom_interpreter.parent_dataset = self
+            ...         self.add_dataset(custom_interpreter)
+            ...
+            >>> # Custom interpreter accesses platform interpreters via parent
+            >>> class RESGenerationInterpreter(Dataset):
+            ...     @property
+            ...     def accepted_flags(self):
+            ...         return {'generators_t.res_generation_total'}
+            ...
+            ...     def _fetch(self, flag, config, **kwargs):
+            ...         # Access sibling interpreters through parent
+            ...         gen_p = self.parent_dataset.fetch('generators_t.p')      # From TimeSeriesInterpreter
+            ...         gen_model = self.parent_dataset.fetch('generators')       # From ModelInterpreter
+            ...
+            ...         # Calculate derived metric
+            ...         res_gens = gen_model[gen_model['carrier'].isin(['solar', 'wind'])]
+            ...         return gen_p[res_gens.index].sum(axis=1)
+
+        Study-specific override of platform variable:
+
+            >>> # Study corrects platform data for specific scenarios
+            >>> class CorrectedLineFlowsInterpreter(Dataset):
+            ...     '''Override platform line flows with corrected external data.'''
+            ...
+            ...     @property
+            ...     def accepted_flags(self):
+            ...         return {'Line.flow_net'}  # Same flag as platform interpreter
+            ...
+            ...     def _fetch(self, flag, config, **kwargs):
+            ...         # This interpreter is added BEFORE the previous platform interpreter,
+            ...         # so it gets priority due to first-match routing
+            ...
+            ...         # Get original platform data from sibling
+            ...         platform_interpreter = self.parent_dataset.get_dataset_by_type(
+            ...             PlatformLineFlowInterpreter
+            ...         )
+            ...         flows = platform_interpreter.fetch(flag, config, **kwargs)
+            ...
+            ...         # Apply corrections for historical scenarios
+            ...         if self.parent_dataset.attributes.get('replace_line_flow_with_custom_data'):
+            ...             flows = self._replace_line_flow_with_custom_data(flows)
+            ...
+            ...         return flows
+            ...
+            >>> # Add correction interpreter FIRST to override platform behavior
+            >>> study_dataset = StudyDataset(network)
+            >>> study_dataset.datasets.insert(0, CorrectedLineFlowsInterpreter())
+
     Warning:
-        If multiple child datasets accept the same flag, only the first one
-        will be used. The constructor logs warnings for such overlaps.
+        If multiple child interpreters accept the same flag, only the FIRST one
+        in the datasets list will handle it. The constructor logs warnings for
+        such overlaps. This can be intentional (override pattern) or accidental.
+
+        To override a flag, add the overriding interpreter BEFORE the original
+        interpreter in the datasets list.
+
+    See Also:
+        - `Dataset.parent_dataset` - Property that child interpreters use to access parent
+        - `DatasetConcatCollection` - For linking multiple scenarios (different use case)
+        - `get_dataset_by_type()` - Method to access specific child interpreter by type
     """
 
     def __init__(
