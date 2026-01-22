@@ -547,42 +547,102 @@ class Dataset(Generic[DatasetConfigType, FlagType, FlagIndexType], ABC):
     @property
     def parent_dataset(self) -> 'DatasetLinkCollection':
         """
-        Access the parent collection containing this dataset.
+        Access the parent collection linking this interpreter to sibling interpreters.
 
-        When a dataset is part of a DatasetLinkCollection, this property provides
-        access to the parent collection. This enables navigation from an individual
-        flag-interpreter dataset to the parent-dataset to fetch sibling flags.
+        The parent_dataset provides the bridge between specialized flag interpreters
+        within a single platform dataset or study. It is NOT used to link scenarios
+        together, but rather to enable modular interpreter architectures where each
+        interpreter handles a specific subset of flags and can access flags from
+        sibling interpreters through the shared parent.
 
-        For example: you have an interpreter that provides a flag that is an aggregation,
-        let's say RES-generation per BZ. You will need to access 'generators_t.p' as well
-        as 'generators.model' in order to filter the generators, then aggregate on the
-        bidding-zone level (column in generators.model).
-        You know that the parent_dataset has access to those flags ('generators_t.p', 'generators.model'),
-        so in your custom flag interpreter you can fetch `self.parent_dataset.fetch('generators_t.p')`
-        and the parent dataset (DatasetLinkCollection) will automatically orchestrate
-        the fetch command to the appropriate sibling interpreter and provides the flag.
-        You can then process the dataframes from the siblings and process them to provide your new flag.
+        Architecture Pattern:
+            A typical platform dataset (e.g., PyPSADataset, PlexosDataset) is
+            implemented as a DatasetLinkCollection containing multiple specialized
+            interpreters:
+
+            - **ModelInterpreter**: Provides static model data (e.g., 'generators', 'buses')
+            - **TimeSeriesInterpreter**: Provides time-series data (e.g., 'generators_t.p')
+            - **ObjectiveInterpreter**: Provides objective function values
+            - **Custom Interpreters**: Study-specific derived or corrected variables
+
+            Each interpreter is a child dataset within the parent DatasetLinkCollection.
+            Through parent_dataset, any interpreter can fetch flags from siblings without
+            needing direct references or circular dependencies.
+
+        Why This Pattern:
+            - **Separation of Concerns**: Each interpreter focuses on one data type
+            - **Modularity**: Add/remove/replace interpreters independently
+            - **Dependency Resolution**: Interpreters can depend on each other's flags
+            - **Study Customization**: Override or extend specific interpreters per study
+            - **Maintainability**: Changes to one interpreter don't affect others
 
         Returns:
-            DatasetLinkCollection: The parent collection containing this dataset
+            DatasetLinkCollection: The parent collection that orchestrates flag
+                routing between this interpreter and its siblings
 
         Raises:
-            RuntimeError: If accessed before the parent has been assigned
+            RuntimeError: If accessed before the parent has been assigned (typically
+                happens if an interpreter is used standalone instead of within a
+                DatasetLinkCollection)
 
         Example:
-            Fetching from sibling through parent, which is a DatasetLinkCollection:
+            Custom interpreter combining flags from sibling interpreters:
 
-                >>> # interpreter dataset part of DatasetLinkCollection (or PlatformDataset)
-                >>> class ResPerBZInterpreter(PlatformBaseInterpreterDataset):
-                ... # init, accepted flags, ...
-                ... def fetch(flag, ...) -> pd.DataFrame:
-                ...     generation = self.parent_dataset.fetch('generators_t.p')  # flag comes from different Interpreter Dataset, but part of same DatasetLinkCollection (or PlatformDataset), meaning it has the same .parent_dataset
-                ...     generator_model = self.parent_dataset.fetch('generators.model')  # flag comes from different Interpreter Dataset, but part of same DatasetLinkCollection (or PlatformDataset), meaning it has the same .parent_dataset
-                ...     res_generation_per_bz = self._do_some_magic(generation, generator_model)
-                ...     return res_generation_per_bz
+                >>> # Study-specific interpreter for renewable generation per bidding zone
+                >>> class RESGenerationPerBZInterpreter(PlatformBaseInterpreterDataset):
+                ...     @property
+                ...     def accepted_flags(self):
+                ...         return {'generators_t.res_generation_per_bz'}
+                ...
+                ...     def _fetch(self, flag, config, **kwargs):
+                ...         # Fetch time series from TimeSeriesInterpreter sibling
+                ...         generation = self.parent_dataset.fetch('generators_t.p')
+                ...
+                ...         # Fetch model data from ModelInterpreter sibling
+                ...         gen_model = self.parent_dataset.fetch('generators.model')
+                ...
+                ...         # Filter to RES generators and aggregate by bidding zone
+                ...         res_gens = gen_model[gen_model['carrier'].isin(['solar', 'wind'])]
+                ...         res_generation = generation[res_gens.index]
+                ...         return res_generation.groupby(gen_model['bidding_zone'], axis=1).sum()
+
+            Accessing specific sibling interpreter by type:
+
+                >>> class SomeCustomPTDFMatrixFormat(PlexosImporterBase):
+                ...     def _fetch(self, flag, config, **kwargs):
+                ...         # Get specific sibling interpreter
+                ...         ptdf_ds = self.parent_dataset.get_dataset_by_type(
+                ...             PlexosPTDFInterpreter
+                ...         )
+                ...
+                ...         # Or fetch through parent (automatically routes to correct sibling)
+                ...         headers = self.parent_dataset.fetch('PTDF.Headers')
+                ...         factors = self.parent_dataset.fetch('PTDF.Factors')
+                ...
+                ...         # Process and return derived flag
+                ...         return self._custom_ptdf_process(headers, factors)
+
+            Study-specific correction of platform variables:
+
+                >>> class LineFlows(MyStudyVariables):
+                ...     '''Replaces specific flows with external data.'''
+                ...
+                ...     def _fetch(self, flag, config, **kwargs):
+                ...         # Get reference dataset (sibling interpreter) for this flag
+                ...         reference_ds = self._get_reference_dataset_for_flag(flag)
+                ...
+                ...         # Fetch original data from sibling
+                ...         df = reference_ds.fetch(flag, config, **kwargs)
+                ...
+                ...         # Apply study-specific corrections
+                ...         if self.parent_dataset.attributes['manual_line_flow_correction']:
+                ...             df = self._apply_historical_corrections(df)
+                ...
+                ...         return df
 
         See Also:
-            - [DatasetLinkCollection](#mesqual.datasets.DatasetLinkCollection)
+            - `DatasetLinkCollection` - Parent collection class that orchestrates routing
+            - `get_dataset_by_type()` - Method to access specific sibling by type
         """
         if self._parent_dataset is None:
             raise RuntimeError(f"Parent dataset called without / before assignment.")
