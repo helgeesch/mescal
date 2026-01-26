@@ -27,6 +27,7 @@ Attributes:
 
 from .base_viz_system import PropertyMapper
 from .kpi_collection_map_visualizer import KPICollectionMapVisualizer, KPIGroupingManager
+from .custom_kpi_group_generator import CustomKPIGroupGenerator
 from .visualizable_data_item import VisualizableDataItem, ModelDataItem, KPIDataItem
 from .viz_areas import ResolvedAreaFeature, AreaFeatureResolver, AreaGenerator
 from .viz_arrow_icon import ResolvedArrowIconFeature, ArrowIconFeatureResolver, ArrowIconGenerator
@@ -45,6 +46,7 @@ __all__ = [
     # KPI visualization and management
     "KPICollectionMapVisualizer",
     "KPIGroupingManager",
+    "CustomKPIGroupGenerator",
 
     # Data item abstractions
     "VisualizableDataItem",
