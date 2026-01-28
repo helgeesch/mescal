@@ -73,8 +73,9 @@ class CustomKPIDefinition(KPIDefinition):
         Initialize custom KPI definition.
 
         Args:
-            kpi_flag: Variable flag for the KPI (Can be a hypothetical flag that doesn't exist
-            model_flag: Optional model flag (auto-inferred if None)
+            kpi_flag: Variable flag for the KPI (Can be a hypothetical/custom flag that doesn't exist in datasets),
+                        primarily used for naming and optionally for automatic model detection
+            model_flag: Optional model flag (auto-inferred from kpi_flag if None)
             objects: List of objects or 'auto_from_model_flag' / 'auto_from_batch_generation' to discover
             name_prefix: Prefix for KPI names
             name_suffix: Suffix for KPI names
