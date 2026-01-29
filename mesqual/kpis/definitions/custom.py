@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Literal, TYPE_CHECKING, Hashable
+from typing import Any, Literal, TYPE_CHECKING, Hashable, Optional
 import pandas as pd
 
 from mesqual.kpis.definitions.base import KPIDefinition
@@ -26,13 +26,44 @@ class CustomKPIDefinition(KPIDefinition):
     Choose the pattern that best fits your use case:
         - Use batch for efficient vectorized operations across all objects
         - Use per_object for complex logic that varies significantly per object
+
+    Examples:
+
+        Volume Weighted Price per country implementation:
+            >>> class VolumeWeightedPrice(CustomKPIDefinition):
+            ...    def get_unit(self) -> Units.Unit:
+            ...        return Units.EUR_per_MWh
+            ...
+            ...    def required_flags(self) -> set[FlagTypeProtocol]:
+            ...        return {'countries_t.price', 'countries_t.load'}
+            ...
+            ...    def compute_batch(
+            ...            self,
+            ...            dataset: Dataset,
+            ...            objects: list[Hashable] | Literal['auto_from_batch_generation']
+            ...    ) -> dict[Hashable, Any]:
+            ...        df_price = dataset.fetch('countries_t.price')
+            ...        df_load = dataset.fetch('countries_t.load')
+            ...
+            ...        if isinstance(objects, list):
+            ...            df_price = df_price[objects]
+            ...            df_load = df_load[objects]
+            ...
+            ...        vol_weighted_price = (df_price * df_load).sum() / df_load.sum()
+            ...        return vol_weighted_price.to_dict()
+            ...
+            >>> from mesqual import StudyManager
+            >>> study: StudyManager
+            >>> vol_weighted_price_definition = VolumeWeightedPrice('countries_t.vol_weighted_price')
+            >>> study.scen.add_kpis_from_definitions_to_all_child_datasets([vol_weighted_price_definition])
+
     """
 
     def __init__(
         self,
-        flag: FlagTypeProtocol,
-        model_flag: FlagTypeProtocol | None = None,
-        objects: list[Hashable] | Literal['auto'] = 'auto',
+        kpi_flag: FlagTypeProtocol,
+        model_flag: Optional[FlagTypeProtocol] = None,
+        objects: list[Hashable] | Literal['auto_from_model_flag', 'auto_from_batch_generation'] = 'auto_from_model_flag',
         name_prefix: str = '',
         name_suffix: str = '',
         extra_attributes: dict = None,
@@ -42,14 +73,15 @@ class CustomKPIDefinition(KPIDefinition):
         Initialize custom KPI definition.
 
         Args:
-            flag: Variable flag for the KPI
-            model_flag: Optional model flag (auto-inferred if None)
-            objects: List of objects or 'auto' to discover
+            kpi_flag: Variable flag for the KPI (Can be a hypothetical/custom flag that doesn't exist in datasets),
+                        primarily used for naming and optionally for automatic model detection
+            model_flag: Optional model flag (auto-inferred from kpi_flag if None)
+            objects: List of objects or 'auto_from_model_flag' / 'auto_from_batch_generation' to discover
             name_prefix: Prefix for KPI names
             name_suffix: Suffix for KPI names
             aggregation: Optional aggregation (for metadata only, not used in computation)
         """
-        self.flag = flag
+        self.kpi_flag = kpi_flag
         self.model_flag = model_flag
         self.objects = objects
         self.name_prefix = name_prefix
@@ -67,10 +99,10 @@ class CustomKPIDefinition(KPIDefinition):
         Returns:
             List of computed KPI instances
         """
-        model_flag = self.model_flag or dataset.flag_index.get_linked_model_flag(self.flag)
+        model_flag = self.model_flag or dataset.flag_index.get_linked_model_flag(self.kpi_flag)
 
-        if self.objects == 'auto':
-            objects = dataset.fetch(self.flag).columns.tolist()
+        if self.objects == 'auto_from_model_flag':
+            objects = dataset.fetch(model_flag).index.tolist()
         else:
             objects = self.objects
 
@@ -78,6 +110,10 @@ class CustomKPIDefinition(KPIDefinition):
             return self._generate_kpis_batch(dataset, model_flag, objects)
         except NotImplementedError:
             pass
+
+        if self.objects == 'auto_from_batch_generation':
+            raise ValueError(f'If you want to use auto_from_batch_generation, you must override compute_batch().')
+
         try:
             return self._generate_kpis_per_object(dataset, model_flag, objects)
         except NotImplementedError:
@@ -119,7 +155,7 @@ class CustomKPIDefinition(KPIDefinition):
         self,
         dataset: Dataset,
         model_flag: FlagTypeProtocol,
-        objects: list[Hashable]
+        objects: list[Hashable] | Literal['auto_from_batch_generation']
     ) -> list[KPI]:
         """
         Generate KPIs by calling compute_batch() once.
@@ -166,7 +202,11 @@ class CustomKPIDefinition(KPIDefinition):
         """
         raise NotImplementedError("Must override compute_for_object() or compute_batch()")
 
-    def compute_batch(self, dataset: Dataset, objects: list[Hashable]) -> dict[Hashable, Any]:
+    def compute_batch(
+            self,
+            dataset: Dataset,
+            objects: list[Hashable] | Literal['auto_from_batch_generation']
+    ) -> dict[Hashable, Any]:
         """
         Compute KPI values for all objects at once.
 
@@ -213,7 +253,7 @@ class CustomKPIDefinition(KPIDefinition):
         """
 
         return KPIAttributes(
-            flag=self.flag,
+            flag=self.kpi_flag,
             model_flag=model_flag,
             object_name=object_name,
             aggregation=self.aggregation,
