@@ -25,7 +25,7 @@ Attributes:
     for building interactive energy system maps and analysis dashboards.
 """
 
-from .base_viz_system import PropertyMapper
+from .base_viz_system import PropertyMapper, ResolvedFeature, FeatureResolver, FoliumObjectGenerator
 from .kpi_collection_map_visualizer import KPICollectionMapVisualizer, KPIGroupingManager
 from .custom_kpi_group_generator import CustomKPIGroupGenerator
 from .visualizable_data_item import VisualizableDataItem, ModelDataItem, KPIDataItem
@@ -42,6 +42,9 @@ from . import legends
 __all__ = [
     # Base visualization components
     "PropertyMapper",
+    "ResolvedFeature",
+    "FeatureResolver",
+    "FoliumObjectGenerator",
 
     # KPI visualization and management
     "KPICollectionMapVisualizer",
