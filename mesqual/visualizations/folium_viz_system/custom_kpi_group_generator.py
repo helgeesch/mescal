@@ -52,7 +52,7 @@ class CustomKPIGroupGenerator(ABC):
         ...         # Work with StudyManager directly
         ...         groups = []
         ...         for dataset in source.scen.dataset_iterator:
-        ...             kpi_col = dataset.get_kpi_collection()
+        ...             kpi_col = dataset.kpi_collection
         ...             price_kpis = kpi_col.filter(flag='price')
         ...             flow_kpis = kpi_col.filter(flag='flow')
         ...
@@ -150,7 +150,7 @@ class CustomKPIGroupGenerator(ABC):
             >>> def create_kpi_groups_with_names(self, source: DatasetCollection):
             ...     groups = []
             ...     for dataset in source.dataset_iterator:
-            ...         all_kpis = dataset.get_kpi_collection()
+            ...         all_kpis = dataset.kpi_collection
             ...         groups.append((f"{dataset.name}", all_kpis))
             ...     return groups
         """
@@ -200,7 +200,7 @@ class CustomKPIGroupGenerator(ABC):
         source: Union['KPICollection', 'StudyManager', 'DatasetCollection', Any],
         map_obj: folium.Map,
         show: Literal['first', 'last', 'all', 'none'] = 'first',
-        overlay: bool = True,
+        overlay: bool = False,
         **data_item_kwargs
     ) -> List[folium.FeatureGroup]:
         """
@@ -231,8 +231,9 @@ class CustomKPIGroupGenerator(ABC):
             List of folium.FeatureGroup objects that were added to the map
 
         Examples:
+
             Passing StudyManager:
-            >>> generator = MyCustomGroupGenerator()
+            >>> generator: CustomKPIGroupGenerator = MyCustomGroupGenerator()
             >>> feature_groups = generator.generate_and_add_feature_groups_to_map(
             ...     source=study,  # StudyManager instance
             ...     map_obj=m,
