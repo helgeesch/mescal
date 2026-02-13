@@ -110,7 +110,7 @@ class TextOverlayFeatureResolver(FeatureResolver[ResolvedTextOverlayFeature]):
             font_weight: PropertyMapper | str = 'bold',
             background_color: PropertyMapper | str = None,
             shadow_size: PropertyMapper | str = '0.5px',
-            shadow_color: PropertyMapper | str = '#F2F2F2',
+            shadow_color: PropertyMapper | str | None = '#F2F2F2',
             text_print_content: PropertyMapper | str | bool = True,
             tooltip: PropertyMapper | str | bool = True,
             popup: PropertyMapper | folium.Popup | bool = False,
