@@ -145,9 +145,9 @@ class PropertyMapper:
             >>> colors = PropertyMapper.from_kpi_value(colorscale)
         """
         if use_abs_kpi_value:
-            cls(lambda data_item: mapping(abs(data_item.kpi.value)))
+            return cls(lambda data_item: mapping(abs(data_item.kpi.value)))
         else:
-            cls(lambda data_item: mapping(data_item.kpi.value))
+            return cls(lambda data_item: mapping(data_item.kpi.value))
 
 
 @dataclass
