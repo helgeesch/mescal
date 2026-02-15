@@ -525,3 +525,6 @@ class KPICollection:
     def __repr__(self) -> str:
         """String representation of collection."""
         return f"KPICollection({self.size} KPIs)"
+
+    def __add__(self, other: KPICollection) -> KPICollection:
+        return KPICollection(self._kpis + other._kpis)

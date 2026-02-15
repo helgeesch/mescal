@@ -169,12 +169,20 @@ class StudyManager:
     def scen(self) -> DatasetConcatCollection:
         return self._scenarios
 
+    @property
+    def scenario_names(self) -> list[str]:
+        return [s.name for s in self.scen.dataset_iterator]
+
     def add_scenario(self, dataset: Dataset):
         self._scenarios.add_dataset(dataset)
 
     @property
     def comp(self) -> DatasetConcatCollectionOfComparisons:
         return self._comparisons
+
+    @property
+    def comparison_names(self) -> list[str]:
+        return [c.name for c in self.comp.dataset_iterator]
 
     def add_comparison(self, dataset: DatasetComparison):
         self._comparisons.add_dataset(dataset)

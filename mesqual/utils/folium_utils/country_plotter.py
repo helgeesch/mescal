@@ -13,6 +13,9 @@ class MapCountryPlotter:
         'weight': 0.5,
         'fillOpacity': 1
     }
+    _AUTO_REPLACEMENTS = {
+        'NO': 'NOR',
+    }
 
     def __init__(self, geojson_file_path: str = None):
         if geojson_file_path is None:
@@ -60,10 +63,12 @@ class MapCountryPlotter:
         return fg
 
     def get_geojson_for_country(self, country_id: str) -> gpd.GeoDataFrame:
+        _country_id = self._AUTO_REPLACEMENTS.get(country_id, country_id)
+
         for column in self.GEOJSON_ID_COLUMNS:
             if column not in self._countries_gdf.columns:
                 continue
-            match = self._countries_gdf[self._countries_gdf[column] == country_id]
+            match = self._countries_gdf[self._countries_gdf[column] == _country_id]
             if not match.empty:
                 return match
         return gpd.GeoDataFrame()

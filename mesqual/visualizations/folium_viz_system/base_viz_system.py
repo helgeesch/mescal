@@ -43,7 +43,7 @@ class PropertyMapper:
         ...     return 'green' if kpi_val > threshold else 'red'
         >>> mapper = PropertyMapper(complex_color)
     """
-    def __init__(self, mapping: Callable[[VisualizableDataItem], Any]):
+    def __init__(self, mapping: Callable[[Union[VisualizableDataItem, KPIDataItem, ModelDataItem]], Any]):
         self.mapping = mapping
 
     def map_data_item(self, data_item: VisualizableDataItem) -> Any:
@@ -115,7 +115,7 @@ class PropertyMapper:
         return cls(lambda data_item: mapping(data_item.get_object_attribute(attribute)))
 
     @classmethod
-    def from_kpi_value(cls, mapping: Callable[[Any], Any]) -> 'PropertyMapper':
+    def from_kpi_value(cls, mapping: Callable[[Any], Any], use_abs_kpi_value: bool = False) -> 'PropertyMapper':
         """
         Create mapper from KPI values with transformation function.
 
@@ -144,7 +144,10 @@ class PropertyMapper:
             >>> colorscale = SegmentedContinuousColorscale(...)
             >>> colors = PropertyMapper.from_kpi_value(colorscale)
         """
-        return cls(lambda data_item: mapping(data_item.kpi.value))
+        if use_abs_kpi_value:
+            return cls(lambda data_item: mapping(abs(data_item.kpi.value)))
+        else:
+            return cls(lambda data_item: mapping(data_item.kpi.value))
 
 
 @dataclass
