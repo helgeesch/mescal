@@ -47,7 +47,8 @@ class RegionalTradeBalanceCalculator:
     EXP_VAR = "exp"
     IMP_VAR = "imp"
     NET_EXP_VAR = "net_exp"
-    ALL_VARS = [EXP_VAR, IMP_VAR, NET_EXP_VAR]
+    TOTAL_VAR = "total"
+    ALL_VARS = [EXP_VAR, IMP_VAR, NET_EXP_VAR, TOTAL_VAR]
 
     def __init__(
             self,
@@ -122,11 +123,14 @@ class RegionalTradeBalanceCalculator:
         for primary in self.get_all_regions():
             for secondary in self.get_region_neighbors(primary):
                 net_exp = self._get_net_exp_for_couple(primary, secondary, flow_data, flow_type)
+                _exp = net_exp.clip(0)
+                _imp = net_exp.clip(None, 0).abs()
                 df = pd.concat(
                     {
                         (primary, secondary, self.NET_EXP_VAR): net_exp,
-                        (primary, secondary, self.EXP_VAR): net_exp.clip(0),
-                        (primary, secondary, self.IMP_VAR): net_exp.clip(None, 0).abs(),
+                        (primary, secondary, self.EXP_VAR): _exp,
+                        (primary, secondary, self.IMP_VAR): _imp,
+                        (primary, secondary, self.TOTAL_VAR): _exp + _imp,
                     },
                     axis=1,
                     names=column_level_names,
