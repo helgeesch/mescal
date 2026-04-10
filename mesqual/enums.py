@@ -45,6 +45,7 @@ class QuantityTypeEnum(Enum):
 
     INTENSIVE = "intensive"  # price, power, flow rate
     EXTENSIVE = "extensive"  # welfare, volume, energy
+    UNKNOWN = "unknown"
 
 
 class ComparisonTypeEnum(Enum):
