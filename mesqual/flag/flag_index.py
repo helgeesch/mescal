@@ -266,7 +266,10 @@ class FlagIndex(Generic[FlagType], ABC):
             >>> flag_index.get_quantity_type_enum("Storage.energy_nom")  # MWh
             QuantityTypeEnum.EXTENSIVE
         """
-        unit = self.get_unit(flag)
+        try:
+            unit = self.get_unit(flag)
+        except KeyError as e:
+            raise KeyError(f'Exception during handling {flag}: {e}')
         return Units.get_quantity_type_enum(unit)
 
     def get_all_timeseries_flags_for_model_flag(self, dataset: Dataset, flag: FlagType) -> Set[FlagType]:
