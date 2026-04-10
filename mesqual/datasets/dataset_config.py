@@ -368,10 +368,13 @@ class DatasetConfigManager:
         """
         config_type = dataset_class.get_config_type()
         base_config = config_type()
-        class_config = cls._class_configs.get(dataset_class)
 
-        if class_config:
-            base_config = base_config.merge(class_config)
+        # Walk MRO from most generic to most specific, merging class configs
+        for klass in reversed(dataset_class.__mro__):
+            class_config = cls._class_configs.get(klass)
+            if class_config:
+                base_config = base_config.merge(class_config)
+
         if instance_config:
             base_config = base_config.merge(instance_config)
 
