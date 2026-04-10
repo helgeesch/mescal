@@ -268,9 +268,9 @@ class FlagIndex(Generic[FlagType], ABC):
         """
         try:
             unit = self.get_unit(flag)
+            return Units.get_quantity_type_enum(unit)
         except KeyError as e:
             raise KeyError(f'Exception during handling {flag}: {e}')
-        return Units.get_quantity_type_enum(unit)
 
     def get_all_timeseries_flags_for_model_flag(self, dataset: Dataset, flag: FlagType) -> Set[FlagType]:
         """
