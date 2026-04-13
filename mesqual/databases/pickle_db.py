@@ -2,11 +2,28 @@ from typing import Optional, List
 import os
 import glob
 from pathlib import Path
+import hashlib
 
 import pandas as pd
 
 from mesqual.typevars import DatasetType, FlagType, DatasetConfigType
 from mesqual.databases.database import Database
+
+
+def _stable_hash(value: str | int) -> int:
+    return int(hashlib.md5(str(value).encode()).hexdigest(), 16)
+
+
+def _normalize_for_hash(value):
+    """Normalize values for deterministic hashing. Sorts lists and sets so
+    iteration order doesn't affect the hash."""
+    if isinstance(value, (set, frozenset)):
+        return sorted(value)
+    if isinstance(value, list):
+        return sorted(value)
+    if isinstance(value, dict):
+        return sorted(value.items())
+    return value
 
 
 class PickleDatabase(Database):
@@ -125,16 +142,15 @@ class PickleDatabase(Database):
             return ""
 
         attrs = {
-            name: getattr(config, name)
-            for name in dir(config)
-            if not name.startswith('_') and not callable(getattr(config, name))
+            k: _normalize_for_hash(v) for k, v in vars(config).items()
+            if not k.startswith('_')
         }
 
         sorted_items = sorted(attrs.items())
 
         # Convert to string representation for hashing
         config_str = str(sorted_items)
-        return str(hash(config_str))
+        return str(_stable_hash(config_str))
 
     def _get_kwargs_hash(self, kwargs: dict) -> str:
         """Generate hash for keyword arguments dictionary.
@@ -154,7 +170,7 @@ class PickleDatabase(Database):
         }
 
         sorted_items = sorted(str_dict.items())
-        return str(hash(str(sorted_items)))
+        return str(_stable_hash(str(sorted_items)))
 
     def _get_file_path(self, dataset: DatasetType, flag: FlagType, config: DatasetConfigType = None, **kwargs) -> str:
         """Generate file path for the given parameters.

@@ -172,9 +172,9 @@ class DatasetConfig:
 
         merged_config = self.__class__()
 
-        for attr_name in dir(self):
-            if not attr_name.startswith('_'):  # Skip private attributes
-                setattr(merged_config, attr_name, getattr(self, attr_name))
+        for k, v in vars(self).items():
+            if not k.startswith('_'):
+                setattr(merged_config, k, v)
 
         if isinstance(other, dict):
             for key, value in other.items():
@@ -182,21 +182,15 @@ class DatasetConfig:
                     setattr(merged_config, key, value)
             return merged_config
 
-        for attr_name in dir(other):
-            if not attr_name.startswith('_'):
-                other_value = getattr(other, attr_name)
-                if other_value is not None:
-                    setattr(merged_config, attr_name, other_value)
+        for k, v in vars(other).items():
+            if not k.startswith('_') and v is not None:
+                setattr(merged_config, k, v)
 
         return merged_config
 
     def __repr__(self) -> str:
         """Return a string representation showing all config attributes."""
-        attrs = {
-            name: getattr(self, name)
-            for name in dir(self)
-            if not name.startswith('_') and not callable(getattr(self, name))
-        }
+        attrs = {k: v for k, v in vars(self).items() if not k.startswith('_')}
         return f"{self.__class__.__name__}({attrs})"
 
 

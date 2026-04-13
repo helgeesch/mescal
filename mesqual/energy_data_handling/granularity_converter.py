@@ -62,6 +62,9 @@ class TimeSeriesGranularityConverter:
 
         target_td = target_freq if isinstance(target_freq, pd.Timedelta) else pd.Timedelta(target_freq)
 
+        if df.empty:
+            return data.copy() if is_series else df.copy()
+
         # Determine sampling direction per day based on each day's median index step
         dates = pd.Series(df.index.date, index=df.index)
         day_gran = pd.to_timedelta(
@@ -69,8 +72,10 @@ class TimeSeriesGranularityConverter:
         )
 
         direction = pd.Series(SamplingMethodEnum.KEEP, index=df.index)
-        direction[day_gran > target_td] = SamplingMethodEnum.UPSAMPLING
-        direction[day_gran < target_td] = SamplingMethodEnum.DOWNSAMPLING
+        # NaT from single-row days stays KEEP (no conversion possible)
+        non_nat = day_gran.notna()
+        direction[(day_gran > target_td) & non_nat] = SamplingMethodEnum.UPSAMPLING
+        direction[(day_gran < target_td) & non_nat] = SamplingMethodEnum.DOWNSAMPLING
 
         # KEEP days with sparse columns (NaN) still need filling
         keep_mask = direction == SamplingMethodEnum.KEEP
