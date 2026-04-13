@@ -29,6 +29,10 @@ class TimeSeriesGranularityConverter:
     The conversion is applied per-column — columns already at the target frequency
     pass through unchanged.
 
+    Supports time series with granularity transitions (e.g., hourly before Oct 2025,
+    15-min after). The sampling direction is determined per calendar day, and
+    contiguous blocks of the same direction are processed together.
+
     Uses pandas resample directly, avoiding explicit granularity analysis of the source data.
     Forward-fill is bounded per calendar day to prevent bleeding across data gaps.
     """
@@ -57,14 +61,33 @@ class TimeSeriesGranularityConverter:
             raise TypeError(f"Index must be DatetimeIndex, got {type(df.index)}")
 
         target_td = target_freq if isinstance(target_freq, pd.Timedelta) else pd.Timedelta(target_freq)
-        index_step = df.index.to_series().diff().median()
 
-        if target_td > index_step:
-            result = self._downsample(df, target_td, quantity_type)
-        elif target_td < index_step or df.isna().any().any():
-            result = self._upsample(df, target_td, quantity_type)
+        # Determine sampling direction per day based on each day's median index step
+        dates = pd.Series(df.index.date, index=df.index)
+        day_gran = df.index.to_series().groupby(dates).transform(lambda g: g.diff().median())
+
+        direction = pd.Series(SamplingMethodEnum.KEEP, index=df.index)
+        direction[day_gran > target_td] = SamplingMethodEnum.UPSAMPLING
+        direction[day_gran < target_td] = SamplingMethodEnum.DOWNSAMPLING
+
+        # KEEP days with sparse columns (NaN) still need filling
+        keep_mask = direction == SamplingMethodEnum.KEEP
+        if keep_mask.any() and df[keep_mask].isna().any().any():
+            direction[keep_mask] = SamplingMethodEnum.UPSAMPLING
+
+        # Fast path: uniform direction across the entire series
+        unique_dirs = direction.unique()
+        if len(unique_dirs) == 1:
+            result = self._apply(df, unique_dirs[0], target_td, quantity_type)
         else:
-            result = df
+            # Process contiguous blocks of the same direction separately
+            # so that resample doesn't create spurious entries in the gaps
+            block_ids = (direction != direction.shift()).cumsum()
+            parts = []
+            for _, block_rows in direction.groupby(block_ids):
+                block = df.loc[block_rows.index]
+                parts.append(self._apply(block, block_rows.iloc[0], target_td, quantity_type))
+            result = pd.concat(parts).sort_index()
 
         if is_series:
             return result.iloc[:, 0].rename(data.name)
@@ -109,6 +132,19 @@ class TimeSeriesGranularityConverter:
         return self.convert(data, target_granularity, quantity_type)
 
     # ── internals ────────────────────────────────────────────────────────
+
+    def _apply(
+        self,
+        df: pd.DataFrame,
+        direction: SamplingMethodEnum,
+        target_td: pd.Timedelta,
+        quantity_type: QuantityTypeEnum,
+    ) -> pd.DataFrame:
+        if direction == SamplingMethodEnum.UPSAMPLING:
+            return self._upsample(df, target_td, quantity_type)
+        if direction == SamplingMethodEnum.DOWNSAMPLING:
+            return self._downsample(df, target_td, quantity_type)
+        return df
 
     @staticmethod
     def _downsample(
@@ -192,3 +228,20 @@ if __name__ == '__main__':
     for qt in [QuantityTypeEnum.INTENSIVE, QuantityTypeEnum.EXTENSIVE]:
         ts = converter.upsample_through_fillna(mixed_series, qt)
         print(f'Upsampled as {qt}:\n{ts}')
+
+    # ── mixed-granularity time series (hourly Jan-Jun, 15min Jul-Dec) ──
+    print('\n── mixed-granularity time series (simulating mid-year resolution change) ──')
+    hourly_part = pd.Series(100, index=pd.date_range('2024-01-01', '2024-06-30 23:00', freq='h', tz=tz))
+    qh_part = pd.Series(10, index=pd.date_range('2024-07-01', '2024-12-31 23:45', freq='15min', tz=tz))
+    mixed_series = pd.concat([hourly_part, qh_part])
+    print(f'Mixed series length: {len(mixed_series)}')
+    print(f'  hourly part: {len(hourly_part)}, 15min part: {len(qh_part)}')
+
+    for qt in [QuantityTypeEnum.INTENSIVE, QuantityTypeEnum.EXTENSIVE]:
+        for target in ['15min', '1h']:
+            start = time.time()
+            ts = converter.convert(mixed_series, target, qt)
+            print(f'  {qt} → {target} took {time.time()-start:.2f}s, len={len(ts)}')
+            # Verify: check a few values from each part
+            print(f'    Jan sample: {ts.iloc[:4].values}')
+            print(f'    Jul sample: {ts.loc["2024-07-01"].iloc[:4].values}')
