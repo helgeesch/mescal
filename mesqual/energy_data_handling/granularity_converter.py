@@ -64,7 +64,9 @@ class TimeSeriesGranularityConverter:
 
         # Determine sampling direction per day based on each day's median index step
         dates = pd.Series(df.index.date, index=df.index)
-        day_gran = df.index.to_series().groupby(dates).transform(lambda g: g.diff().median())
+        day_gran = pd.to_timedelta(
+            df.index.to_series().groupby(dates).transform(lambda g: g.diff().median())
+        )
 
         direction = pd.Series(SamplingMethodEnum.KEEP, index=df.index)
         direction[day_gran > target_td] = SamplingMethodEnum.UPSAMPLING
