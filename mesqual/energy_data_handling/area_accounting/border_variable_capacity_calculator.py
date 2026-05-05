@@ -51,7 +51,8 @@ class BorderCapacityCalculator(AreaBorderVariableCalculatorBase):
         Direction logic:
         - 'up': Capacities for flows from area_from to area_to
         - 'down': Capacities for flows from area_to to area_from
-        
+        - 'total': Sum capacities in both directions
+
         For each border, the method:
         1. Identifies lines in 'up' and 'down' topological directions
         2. Selects appropriate capacity data based on requested direction
@@ -72,7 +73,7 @@ class BorderCapacityCalculator(AreaBorderVariableCalculatorBase):
             total transmission capacity in MW for each border and timestamp.
             
         Raises:
-            ValueError: If direction is not 'up' or 'down'
+            ValueError: If direction is not 'up', 'down', or 'total'
             
         Example:
             
@@ -84,6 +85,9 @@ class BorderCapacityCalculator(AreaBorderVariableCalculatorBase):
             >>> 
             >>> print(f"DE→FR capacity: {up_caps.loc['2024-01-01 12:00', 'DE-FR']:.0f} MW")
         """
+        if direction == 'total':
+            return self.calculate(line_capacity_data, 'up') + self.calculate(line_capacity_data, 'down')
+
         self._validate_time_series_data(line_capacity_data.capacities_up, "capacities_up")
         self._validate_time_series_data(line_capacity_data.capacities_down, "capacities_down")
         
