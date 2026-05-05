@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from mesqual.datasets.dataset import Dataset
+from mesqual.enums import ItemTypeEnum
 from mesqual.flag.flag_index import FlagIndex
 from mesqual.utils.pandas_utils.is_numeric import pd_is_numeric
 from mesqual.utils.logging import get_logger
@@ -589,16 +590,42 @@ class DatasetSumCollection(
     Generic[DatasetType, DatasetConfigType, FlagType, FlagIndexType],
     DatasetCollection[DatasetType, DatasetConfigType, FlagType, FlagIndexType]
 ):
-    def _fetch(self, flag: FlagType, effective_config: DatasetConfigType, **kwargs) -> pd.Series | pd.DataFrame:
-        data: list[pd.Series | pd.DataFrame] = []
-        for ds in self.datasets:
-            if ds.flag_is_accepted(flag):
-                data.append(ds.fetch(flag, effective_config, **kwargs))
-        if not data:
-            raise KeyError(f"Flag '{flag}' not recognized by any of the linked Datasets in {type(self)} {self.name}.")
-        
-        if all(pd_is_numeric(d) for d in data):
-            import numpy as np
-            return np.sum(data)
+    """
+    Sums Timeseries flags of child-datasets; Applies DatasetMergeCollection Logic for model flags.
+    """
 
-        raise NotImplementedError
+    @property
+    def _merge_collection(self) -> DatasetMergeCollection:
+        return DatasetMergeCollection(
+            self.datasets,
+            name=self.name,
+            flag_index=self.flag_index,
+            attributes=self.attributes,
+            database=self.database,
+            config=self.instance_config,
+            keep_first=True
+        )
+
+    def _fetch(self, flag: FlagType, effective_config: DatasetConfigType, **kwargs) -> pd.Series | pd.DataFrame:
+
+        # In case of "model flag", return the merged model (don't sum)
+        item_type = self.flag_index.get_item_type(flag)
+        if item_type == ItemTypeEnum.Model:
+            return self._merge_collection.fetch(flag, effective_config, **kwargs)
+
+        # In case of "time-series flag", return the
+        elif item_type == ItemTypeEnum.TimeSeries:
+            data: list[pd.Series | pd.DataFrame] = []
+            for ds in self.datasets:
+                if ds.flag_is_accepted(flag):
+                    data.append(ds.fetch(flag, effective_config, **kwargs))
+            if not data:
+                raise KeyError(f"Flag '{flag}' not recognized by any of the linked Datasets in {type(self)} {self.name}.")
+
+            if all(pd_is_numeric(d) for d in data):
+                import numpy as np
+                return np.sum(data)
+
+        raise NotImplementedError(
+            f'No Handling for item_type {item_type} of flag {flag} implemented in {self.__class__.__name__}'
+        )
