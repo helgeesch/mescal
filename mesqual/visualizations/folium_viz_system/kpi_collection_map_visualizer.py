@@ -166,46 +166,48 @@ class KPIGroupingManager:
         Returns:
             List of KPICollection objects, each representing a logical group
         """
-        from mesqual.utils.dict_combinations import dict_combination_iterator
-
         attribute_sets = kpi_collection.get_all_kpi_attributes_and_value_sets(primitive_values=True)
-        relevant_attribute_sets = {
-            k: v for k, v in attribute_sets.items()
+        relevant_keys = [
+            k for k in attribute_sets.keys()
             if k not in self.kpi_attribute_keys_to_exclude_from_grouping
-        }
+        ]
 
-        ordered_keys = [k for k in self.kpi_attribute_sort_order if k in relevant_attribute_sets]
+        grouping_keys = (
+            [k for k in self.kpi_attribute_sort_order if k in relevant_keys]
+            + [k for k in relevant_keys if k not in self.kpi_attribute_sort_order]
+        )
 
-        # Build attribute value rankings
-        attribute_value_rank: dict[str, dict[str, int]] = {}
-        for attr in ordered_keys:
-            existing_values = set(relevant_attribute_sets.get(attr, []))
+        # Build attribute value rankings (used for sorting groups)
+        attribute_value_rank: dict[str, dict] = {}
+        for attr in grouping_keys:
+            existing_values = list(attribute_sets.get(attr, set()))
             manual_order = [v for v in self.kpi_attribute_category_orders.get(attr, []) if v in existing_values]
-            remaining = list(existing_values - set(manual_order))
+            remaining = [v for v in existing_values if v not in manual_order]
             try:
-                remaining = list(sorted(remaining))
+                remaining = sorted(remaining)
             except TypeError:
                 pass
             full_order = manual_order + remaining
             attribute_value_rank[attr] = {val: idx for idx, val in enumerate(full_order)}
 
-        def sorting_index(group_kwargs: dict[str, str]) -> tuple:
+        # Bucket each KPI by its actual attribute tuple. KPIs missing an attribute
+        # land in the None bucket for that key instead of being filtered out of
+        # every group — required when an attribute is set on some scenarios but
+        # not others (e.g. heterogeneous dataset_attributes across a study).
+        groups_by_key: dict[tuple, list] = {}
+        for kpi in kpi_collection:
+            attrs = kpi.attributes.as_dict(primitive_values=True)
+            key = tuple(attrs.get(k) for k in grouping_keys)
+            groups_by_key.setdefault(key, []).append(kpi)
+
+        def sorting_index(key: tuple) -> tuple:
             return tuple(
-                attribute_value_rank[attr].get(group_kwargs.get(attr), float("inf"))
-                for attr in ordered_keys
+                attribute_value_rank[attr].get(val, float("inf"))
+                for attr, val in zip(grouping_keys, key)
             )
 
-        # Create and sort groups
-        group_kwargs_list = list(dict_combination_iterator(relevant_attribute_sets))
-        group_kwargs_list.sort(key=sorting_index)
-
-        groups: list[KPICollection] = []
-        for group_kwargs in group_kwargs_list:
-            g = kpi_collection.filter(**group_kwargs)
-            if not g.empty:
-                groups.append(g)
-
-        return groups
+        sorted_keys = sorted(groups_by_key.keys(), key=sorting_index)
+        return [KPICollection(groups_by_key[k]) for k in sorted_keys]
 
     def get_feature_group_name(self, kpi_group: KPICollection) -> str:
         """
