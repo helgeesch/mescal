@@ -41,9 +41,11 @@ class HTMLDashboardElement:
             height: str = '100%',
             name: str = None,
             tab: Union[str, Tuple[str, str], None] = None,
+            force_height: bool = False,
     ):
         self.element = element
         self.height = height
+        self.force_height = force_height
         self.name = name or str(id(self))
         if name is None:
             logger.info(f'No name passed for {type(self).__name__}. Automatically generated name: {self.name}')
@@ -96,14 +98,25 @@ class HTMLDashboard:
             height: str = '100%',
             name: str = None,
             tab: Union[str, Tuple[str, str], None] = None,
+            force_height: bool = False,
     ):
         """Add a Plotly figure to the dashboard.
 
         Args:
             fig: The Plotly figure to add.
             height: CSS height specification for the figure. Defaults to '100%'.
+                Only used as the rendered container height when ``force_height``
+                is True or when the figure has no explicit ``layout.height``.
             name: Unique identifier for the figure. If None, auto-generates.
             tab: Optional tab path (see :class:`HTMLDashboardElement`).
+            force_height: When True, the dashboard's ``height`` argument wins
+                and the figure's ``layout.height``/``layout.width`` are cleared
+                so the plot adapts to the container (e.g. ``height='100%'``
+                fits the tab, ``height='2000px'`` produces a fixed-pixel
+                container, parent's ``overflow: auto`` then handles scroll).
+                When False (default), the figure's intrinsic
+                ``layout.height``/``layout.width`` win and ``height`` is only
+                used as a fallback if those are unset.
 
         Example:
 
@@ -111,7 +124,7 @@ class HTMLDashboard:
             >>> fig = px.bar(x=["A", "B", "C"], y=[1, 3, 2])
             >>> dashboard.add_plotly_figure(fig, height="400px", name="my_bar_chart")
         """
-        element = HTMLDashboardElement(fig, height, name, tab=tab)
+        element = HTMLDashboardElement(fig, height, name, tab=tab, force_height=force_height)
         self.content[element.name] = element
 
     def add_html(self, html_string: str, name: str = None, tab: Union[str, Tuple[str, str], None] = None):
@@ -297,10 +310,20 @@ class HTMLDashboard:
 
     def _element_to_html(self, element: HTMLDashboardElement, plotly_js_included: bool) -> str:
         if isinstance(element.element, go.Figure):
-            return element.element.to_html(
+            fig = element.element
+            if element.force_height:
+                # Clone so we don't mutate the caller's figure, then strip
+                # explicit layout dimensions so plotly's `default_height`
+                # actually takes effect and the plot adapts to the container.
+                fig = go.Figure(fig.to_dict())
+                fig.layout.height = None
+                fig.layout.width = None
+                fig.layout.autosize = True
+            return fig.to_html(
                 include_plotlyjs=not plotly_js_included,
                 full_html=False,
                 default_height=element.height,
+                config={'responsive': element.force_height},
             )
         elif isinstance(element.element, str):
             return element.element
@@ -375,7 +398,7 @@ class HTMLDashboard:
         .dashboard-tab-content .js-plotly-plot,
         .dashboard-subtab-content .js-plotly-plot { width: 100% !important; flex: 1 1 0; min-height: 0; }
         .dashboard-tab-content .plotly-graph-div,
-        .dashboard-subtab-content .plotly-graph-div { height: 100% !important; }
+        .dashboard-subtab-content .plotly-graph-div { height: 100%; }
         """
 
     @staticmethod
