@@ -623,8 +623,8 @@ class DatasetSumCollection(
                 raise KeyError(f"Flag '{flag}' not recognized by any of the linked Datasets in {type(self)} {self.name}.")
 
             if all(pd_is_numeric(d) for d in data):
-                import numpy as np
-                return np.sum(data)
+                from functools import reduce
+                return reduce(lambda a, b: a.add(b, fill_value=0), data)
 
         raise NotImplementedError(
             f'No Handling for item_type {item_type} of flag {flag} implemented in {self.__class__.__name__}'
