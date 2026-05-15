@@ -147,11 +147,16 @@ class TimeSeriesGranularityConverter:
         target_td: pd.Timedelta,
         quantity_type: QuantityTypeEnum,
     ) -> pd.DataFrame:
+        if direction == SamplingMethodEnum.KEEP:
+            return df
         if direction == SamplingMethodEnum.UPSAMPLING:
-            return self._upsample(df, target_td, quantity_type)
-        if direction == SamplingMethodEnum.DOWNSAMPLING:
-            return self._downsample(df, target_td, quantity_type)
-        return df
+            result = self._upsample(df, target_td, quantity_type)
+        else:
+            result = self._downsample(df, target_td, quantity_type)
+        # resample() builds a contiguous grid between min and max of the input,
+        # fabricating rows on calendar days that weren't present. Drop those.
+        input_days = df.index.normalize().unique()
+        return result[result.index.normalize().isin(input_days)]
 
     @staticmethod
     def _downsample(
