@@ -315,6 +315,11 @@ class ValueComparisons:
         lambda var, ref: np.inf * np.sign(var) if ref == 0 else var / ref * 100,
         Units.percent
     )
+    Ratio = ValueComparison(
+        "Ratio",
+        lambda var, ref: np.inf * np.sign(var) if ref == 0 else var / ref * 100,
+        Units.ratio
+    )
     Delta = ValueComparison("Delta", lambda var, ref: var - ref)
     Diff = ValueComparison("Diff", lambda var, ref: var - ref)
 

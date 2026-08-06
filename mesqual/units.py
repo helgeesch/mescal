@@ -197,7 +197,7 @@ class Units(metaclass=_IterableUnitsMeta):
             unit: The unit to classify
 
         Returns:
-            QuantityTypeEnum indicating INTENSIVE or EXTENSIVE
+            QuantityTypeEnum indicating INTENSIVE or EXTENSIVE (or UNKNOWN)
 
         Raises:
             KeyError: If the unit's base unit is not registered in the classification lists
@@ -213,7 +213,7 @@ class Units(metaclass=_IterableUnitsMeta):
             return QuantityTypeEnum.INTENSIVE
         elif base_unit in cls._EXTENSIVE_QUANTITIES:
             return QuantityTypeEnum.EXTENSIVE
-        raise KeyError(f'QuantityTypeEnum for {unit} not registered')
+        return QuantityTypeEnum.UNKNOWN
 
     @classmethod
     def units_have_same_base(cls, unit_1: Unit, unit_2: Unit) -> bool:

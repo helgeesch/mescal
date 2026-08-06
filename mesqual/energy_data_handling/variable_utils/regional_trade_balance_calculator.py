@@ -47,7 +47,8 @@ class RegionalTradeBalanceCalculator:
     EXP_VAR = "exp"
     IMP_VAR = "imp"
     NET_EXP_VAR = "net_exp"
-    ALL_VARS = [EXP_VAR, IMP_VAR, NET_EXP_VAR]
+    TOTAL_VAR = "total"
+    ALL_VARS = [EXP_VAR, IMP_VAR, NET_EXP_VAR, TOTAL_VAR]
 
     def __init__(
             self,
@@ -97,19 +98,26 @@ class RegionalTradeBalanceCalculator:
         lines_backward = self.line_model_df[mask_backward].index
 
         if flow_type == FlowType.PRE_LOSS:
-            return (
-                    flow_data.sent_up[lines_forward].sum(axis=1) -
-                    flow_data.sent_down[lines_forward].sum(axis=1) +
-                    flow_data.sent_down[lines_backward].sum(axis=1) -
-                    flow_data.sent_up[lines_backward].sum(axis=1)
-            )
+            fwd_in, fwd_out = flow_data.sent_up, flow_data.sent_down
+            bwd_in, bwd_out = flow_data.sent_down, flow_data.sent_up
         else:  # POST_LOSS
-            return (
-                    flow_data.sent_up[lines_forward].sum(axis=1) -
-                    flow_data.received_down[lines_forward].sum(axis=1) +
-                    flow_data.sent_down[lines_backward].sum(axis=1) -
-                    flow_data.received_up[lines_backward].sum(axis=1)
-            )
+            fwd_in, fwd_out = flow_data.sent_up, flow_data.received_down
+            bwd_in, bwd_out = flow_data.sent_down, flow_data.received_up
+
+        net = (
+                fwd_in[lines_forward].sum(axis=1) -
+                fwd_out[lines_forward].sum(axis=1) +
+                bwd_in[lines_backward].sum(axis=1) -
+                bwd_out[lines_backward].sum(axis=1)
+        )
+
+        any_value = (
+                fwd_in[lines_forward].notna().any(axis=1) |
+                fwd_out[lines_forward].notna().any(axis=1) |
+                bwd_in[lines_backward].notna().any(axis=1) |
+                bwd_out[lines_backward].notna().any(axis=1)
+        )
+        return net.where(any_value)
 
     def get_trade_balance(
             self,
@@ -122,11 +130,14 @@ class RegionalTradeBalanceCalculator:
         for primary in self.get_all_regions():
             for secondary in self.get_region_neighbors(primary):
                 net_exp = self._get_net_exp_for_couple(primary, secondary, flow_data, flow_type)
+                _exp = net_exp.clip(0)
+                _imp = net_exp.clip(None, 0).abs()
                 df = pd.concat(
                     {
                         (primary, secondary, self.NET_EXP_VAR): net_exp,
-                        (primary, secondary, self.EXP_VAR): net_exp.clip(0),
-                        (primary, secondary, self.IMP_VAR): net_exp.clip(None, 0).abs(),
+                        (primary, secondary, self.EXP_VAR): _exp,
+                        (primary, secondary, self.IMP_VAR): _imp,
+                        (primary, secondary, self.TOTAL_VAR): _exp + _imp,
                     },
                     axis=1,
                     names=column_level_names,
@@ -162,7 +173,7 @@ class RegionalTradeBalanceCalculator:
         if trade_balance_df.columns.names != [self.primary_name, self.partner_name, "variable"]:
             raise ValueError("Input DataFrame must be in format from aggregate_flows")
 
-        return trade_balance_df.T.groupby(level=[self.primary_name, "variable"]).sum().T
+        return trade_balance_df.T.groupby(level=[self.primary_name, "variable"]).sum(min_count=1).T
 
     def get_net_position_per_primary_level(self, trade_balance_df: pd.DataFrame) -> pd.DataFrame:
         return self.aggregate_trade_balance_to_primary_level(trade_balance_df).xs(self.NET_EXP_VAR, level=-1, axis=1)
